@@ -1,0 +1,1132 @@
+openapi: 3.0.0
+info:
+  title: Calendly Klooni API
+  description: API kohtumiste planeerimiseks ja haldamiseks (Eestikeelne dokumentatsioon)
+  version: 1.0.0
+servers:
+  - url: /
+    description: API endpoints
+paths:
+  /users:
+    get:
+      security:
+        - BearerAuth: []
+      tags:
+        - Kasutajad
+      summary: Kuva kõik kasutajad
+      description: Kuva lehekülgede kaupa kõik kasutajad. Tavalised kasutajad näevad ainult oma andmeid, administraatorid näevad kõiki kasutajaid.
+      parameters:
+        - name: page
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Soovitud lehekülje number.
+        - name: pageSize
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Kasutajate arv ühel leheküljel.
+      responses:
+        '200':
+          description: Kasutajate nimekiri edukalt hangitud
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+              example:
+                data:
+                  - id: "user-123e4567-e89b-12d3-a456-426614174000"
+                    name: "Jaan Tamm"
+                    email: "jaan.tamm@näide.ee"
+                    timezone: "Europe/Tallinn"
+                  - id: "user-223e4567-e89b-12d3-a456-426614174001"
+                    name: "Mari Mets"
+                    email: "mari.mets@näide.ee"
+                    timezone: "Europe/Tallinn"
+                pagination:
+                  page: 1
+                  pageSize: 20 
+                  total: 2
+        '400':
+          description: Vigased lehekülje parameetrid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Vigased lehekülje parameetrid"
+        '401':
+          description: Autoriseerimata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Serveri sisemine viga
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags:
+        - Kasutajad
+      summary: Loo uus kasutaja
+      description: Loo uus kasutaja nime, e-posti, parooli ja valikulise ajavööndiga.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+            example:
+              name: "Jaan Tamm"
+              email: "jaan.tamm@näide.ee"
+              password: "turvalineParool123!"
+              timezone: "Europe/Tallinn"
+      responses:
+        '201':
+          description: Kasutaja edukalt loodud
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+              example:
+                id: "user-123e4567-e89b-12d3-a456-426614174000"
+                name: "Jaan Tamm"
+                email: "jaan.tamm@näide.ee"
+                timezone: "Europe/Tallinn"
+                token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        '400':
+          description: Vigane sisend
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "E-posti aadress on juba kasutusel või vigases vormingus"
+
+  /users/{userId}:
+    get:
+      security:
+        - BearerAuth: []
+      tags:
+        - Kasutajad
+      summary: Kuva kasutaja detailid
+      description: Kuva konkreetse kasutaja detailid ID järgi. Kasutajad saavad juurdepääsu ainult oma andmetele, v.a administraatorid.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Kasutaja ID, kelle andmeid soovitakse.
+      responses:
+        '200':
+          description: Kasutaja andmed edukalt hangitud
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+              example:
+                id: "user-123e4567-e89b-12d3-a456-426614174000"
+                name: "Jaan Tamm"
+                email: "jaan.tamm@näide.ee"
+                timezone: "Europe/Tallinn"
+        '401':
+          description: Autoriseerimata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Autentimine on nõutud"
+        '403':
+          description: Keelatud
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Sul on ligipääs ainult oma kasutajaandmetele"
+        '404':
+          description: Kasutajat ei leitud
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Kasutajat ID-ga user-123e4567 ei leitud"
+
+    patch:
+      security:
+        - BearerAuth: []
+      tags:
+        - Kasutajad
+      summary: Muuda kasutaja andmeid
+      description: Muuda kasutaja konkreetseid välju ID järgi. Kasutajad saavad muuta ainult oma andmeid.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Muudetava kasutaja ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserPatch'
+            example:
+              name: "Jaan T. Tamm"
+              timezone: "Europe/Helsinki"
+      responses:
+        '200':
+          description: Kasutaja andmed edukalt muudetud
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+              example:
+                id: "user-123e4567-e89b-12d3-a456-426614174000"
+                name: "Jaan T. Tamm"
+                email: "jaan.tamm@näide.ee"
+                timezone: "Europe/Helsinki"
+        '401':
+          description: Autoriseerimata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Autentimine on nõutud"
+        '403':
+          description: Keelatud
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Sul on ligipääs ainult oma kasutajaandmete muutmiseks"
+
+    delete:
+      security:
+        - BearerAuth: []
+      tags:
+        - Kasutajad
+      summary: Kustuta kasutaja
+      description: Kustuta kasutaja ID järgi. Kasutajad saavad kustutada ainult oma kontot.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Kustutatava kasutaja ID.
+      responses:
+        '204':
+          description: Kasutaja edukalt kustutatud
+        '401':
+          description: Autoriseerimata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Autentimine on nõutud"
+        '403':
+          description: Keelatud
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Sul on ligipääs ainult oma konto kustutamiseks"
+        '404':
+          description: Kasutajat ei leitud
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Ressurssi ei leitud"
+
+  /sessions:
+    post:
+      tags:
+        - Autentimine
+      summary: Loo sessioon (sisselogimine)
+      description: Autendi kasutaja ja loo sessioon
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+              required:
+                - email
+                - password
+            example:
+              email: "jaan.tamm@näide.ee"
+              password: "turvalineParool123!"
+      responses:
+        '200':
+          description: Sisselogimine õnnestus
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+              example:
+                token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                user:
+                  id: "user-123e4567-e89b-12d3-a456-426614174000"
+                  name: "Jaan Tamm"
+                  email: "jaan.tamm@näide.ee"
+                  timezone: "Europe/Tallinn"
+        '400':
+          description: Puuduv e-post või parool
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "E-post ja parool on kohustuslikud"
+        '401':
+          description: Vigased sisselogimisandmed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Vale e-post või parool"
+        '500':
+          description: Serveri viga
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Autentimisel tekkis viga"
+
+    delete:
+      tags:
+        - Autentimine
+      summary: Lõpeta sessioon (väljalogimine)
+      description: Lõpeta kasutaja sessioon
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Väljalogimine õnnestus
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+              example:
+                message: "Edukalt välja logitud"
+        '400':
+          description: Token puudub
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Token puudub"
+        '401':
+          description: Autoriseerimata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Autentimine on nõutud"
+        '500':
+          description: Serveri viga
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Väljalogimisel tekkis viga"
+
+  /events:
+    post:
+      security:
+        - BearerAuth: []
+      tags:
+        - Sündmused
+      summary: Loo uus sündmuse tüüp
+      description: Loo uus sündmuse tüüp koos nime, kestuse ja valikuliste lisadetailidega.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventType'
+            example:
+              name: "30-minutiline kohtumine"
+              duration: 30
+              description: "Lühike konsultatsioonikõne"
+              color: "#4CAF50"
+      responses:
+        '201':
+          description: Sündmuse tüüp edukalt loodud
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventType'
+              example:
+                id: "evt-123e4567-e89b-12d3-a456-426614174000"
+                name: "30-minutiline kohtumine"
+                duration: 30
+                description: "Lühike konsultatsioonikõne"
+                color: "#4CAF50"
+        '400':
+          description: Vigane sisend
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Vigane sisend"
+
+    get:
+      security:
+        - BearerAuth: []
+      tags:
+        - Sündmused
+      summary: Kuva kõik sündmused
+      description: Hangi kõik sündmuste tüübid.
+      responses:
+        '200':
+          description: Sündmuste nimekiri edukalt hangitud
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+              example:
+                - id: "evt-123e4567-e89b-12d3-a456-426614174000"
+                  name: "30-minutiline kohtumine"
+                  duration: 30
+                  description: "Lühike konsultatsioonikõne"
+                  color: "#4CAF50"
+                - id: "evt-223e4567-e89b-12d3-a456-426614174001"
+                  name: "60-minutiline kohtumine"
+                  duration: 60
+                  description: "Põhjalik arutelu"
+                  color: "#2196F3"
+
+  /events/{eventId}:
+    get:
+      security:
+        - BearerAuth: []
+      tags:
+        - Sündmused
+      summary: Kuva sündmuse detailid
+      description: Hangi konkreetse sündmuse detailid ID järgi.
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Sündmuse ID, mille detaile soovitakse.
+      responses:
+        '200':
+          description: Sündmus leitud
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+              example:
+                id: "evt-123e4567-e89b-12d3-a456-426614174000"
+                name: "30-minutiline kohtumine"
+                duration: 30
+                description: "Lühike konsultatsioonikõne"
+                color: "#4CAF50"
+        '404':
+          description: Sündmust ei leitud
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Sündmust ID-ga evt-123e4567 ei leitud"
+
+    patch:
+      security:
+        - BearerAuth: []
+      tags:
+        - Sündmused
+      summary: Muuda sündmuse andmeid
+      description: Muuda konkreetse sündmuse välju ID järgi.
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Muudetava sündmuse ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventPatch'
+            example:
+              name: "45-minutiline kohtumine"
+              duration: 45
+              description: "Pikendatud konsultatsioonikõne"
+              color: "#9C27B0"
+      responses:
+        '200':
+          description: Sündmuse andmed edukalt muudetud
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventType'
+
+    delete:
+      security:
+        - BearerAuth: []
+      tags:
+        - Sündmused
+      summary: Kustuta sündmus
+      description: Kustuta konkreetne sündmus ID järgi.
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Kustutatava sündmuse ID.
+      responses:
+        '204':
+          description: Sündmus edukalt kustutatud
+        '404':
+          description: Sündmust ei leitud
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Ressurssi ei leitud"
+
+  /schedules:
+    post:
+      security:
+        - BearerAuth: []
+      tags:
+        - Graafikud
+      summary: Loo uus graafik
+      description: Loo uus graafik kasutajale koos tema saadavusega.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScheduleInput'
+            example:
+              userId: "user-123e4567-e89b-12d3-a456-426614174000"
+              availability:
+                - day: monday
+                  startTime: "09:00"
+                  endTime: "17:00"
+                - day: tuesday
+                  startTime: "09:00"
+                  endTime: "17:00"
+                - day: wednesday
+                  startTime: "09:00"
+                  endTime: "17:00"
+                - day: thursday
+                  startTime: "09:00"
+                  endTime: "17:00"
+                - day: friday
+                  startTime: "09:00"
+                  endTime: "16:00"
+      responses:
+        '201':
+          description: Graafik edukalt loodud
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Schedule'
+              example:
+                id: "sched-123e4567-e89b-12d3-a456-426614174000"
+                userId: "user-123e4567-e89b-12d3-a456-426614174000"
+                availability:
+                  - day: monday
+                    startTime: "09:00"
+                    endTime: "17:00"
+                  - day: tuesday
+                    startTime: "09:00"
+                    endTime: "17:00"
+                  - day: wednesday
+                    startTime: "09:00"
+                    endTime: "17:00"
+                  - day: thursday
+                    startTime: "09:00"
+                    endTime: "17:00"
+                  - day: friday
+                    startTime: "09:00"
+                    endTime: "16:00"
+        '400':
+          description: Vigane sisend
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Vigane sisend"
+
+    get:
+      security:
+        - BearerAuth: []
+      tags:
+        - Graafikud
+      summary: Kuva kõik graafikud
+      description: Hangi kõik graafikud.
+      responses:
+        '200':
+          description: Graafikute nimekiri edukalt hangitud
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Schedule'
+              example:
+                - id: "sched-123e4567-e89b-12d3-a456-426614174000"
+                  userId: "user-123e4567-e89b-12d3-a456-426614174000"
+                  availability:
+                    - day: monday
+                      startTime: "09:00"
+                      endTime: "17:00"
+                    - day: tuesday
+                      startTime: "09:00"
+                      endTime: "17:00"
+                - id: "sched-223e4567-e89b-12d3-a456-426614174001"
+                  userId: "user-223e4567-e89b-12d3-a456-426614174001"
+                  availability:
+                    - day: monday
+                      startTime: "10:00"
+                      endTime: "18:00"
+                    - day: wednesday
+                      startTime: "10:00"
+                      endTime: "18:00"
+
+  /schedules/{userId}:
+    get:
+      security:
+        - BearerAuth: []
+      tags:
+        - Graafikud
+      summary: Kuva kasutaja graafik
+      description: Hangi konkreetse kasutaja graafik tema ID järgi.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Kasutaja ID, kelle graafikut soovitakse.
+      responses:
+        '200':
+          description: Graafik edukalt hangitud
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Schedule'
+              example:
+                id: "sched-123e4567-e89b-12d3-a456-426614174000"
+                userId: "user-123e4567-e89b-12d3-a456-426614174000"
+                availability:
+                  - day: monday
+                    startTime: "09:00"
+                    endTime: "17:00"
+                  - day: tuesday
+                    startTime: "09:00"
+                    endTime: "17:00"
+        '404':
+          description: Graafikut ei leitud
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Graafikut kasutajale ID-ga user-123e4567 ei leitud"
+
+    patch:
+      security:
+        - BearerAuth: []
+      tags:
+        - Graafikud
+      summary: Muuda kasutaja graafikut
+      description: Muuda kasutaja graafiku välju ID järgi.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Muudetava graafiku kasutaja ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SchedulePatch'
+            example:
+              availability:
+                - day: monday
+                  startTime: "10:00"
+                  endTime: "18:00"
+                - day: wednesday
+                  startTime: "10:00"
+                  endTime: "18:00"
+      responses:
+        '200':
+          description: Graafik edukalt muudetud
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Schedule'
+
+    delete:
+      security:
+        - BearerAuth: []
+      tags:
+        - Graafikud
+      summary: Kustuta graafik
+      description: Kustuta kasutaja graafik ID järgi.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Kustutatava graafiku kasutaja ID.
+      responses:
+        '204':
+          description: Graafik edukalt kustutatud
+        '404':
+          description: Graafikut ei leitud
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Ressurssi ei leitud"
+
+  /appointments:
+    post:
+      security:
+        - BearerAuth: []
+      tags:
+        - Kohtumised
+      summary: Planeeri kohtumine
+      description: Planeeri uus kohtumine sündmuse, kasutaja ja külalise vahel.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Appointment'
+            example:
+              eventId: "evt-123e4567-e89b-12d3-a456-426614174000"
+              userId: "user-123e4567-e89b-12d3-a456-426614174000"
+              inviteeEmail: "mari.mets@näide.ee"
+              startTime: "2024-01-15T10:00:00Z"
+              endTime: "2024-01-15T10:30:00Z"
+              status: "planeeritud"
+      responses:
+        '201':
+          description: Kohtumine edukalt planeeritud
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+              example:
+                id: "apt-123e4567-e89b-12d3-a456-426614174000"
+                eventId: "evt-123e4567-e89b-12d3-a456-426614174000"
+                userId: "user-123e4567-e89b-12d3-a456-426614174000"
+                inviteeEmail: "mari.mets@näide.ee"
+                startTime: "2024-01-15T10:00:00Z"
+                endTime: "2024-01-15T10:30:00Z"
+                status: "planeeritud"
+
+    get:
+      security:
+        - BearerAuth: []
+      tags:
+        - Kohtumised
+      summary: Kuva kõik kohtumised
+      description: Hangi kõik planeeritud kohtumised.
+      responses:
+        '200':
+          description: Kohtumiste nimekiri edukalt hangitud
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Appointment'
+              example:
+                - id: "apt-123e4567-e89b-12d3-a456-426614174000"
+                  eventId: "evt-123e4567-e89b-12d3-a456-426614174000"
+                  userId: "user-123e4567-e89b-12d3-a456-426614174000"
+                  inviteeEmail: "mari.mets@näide.ee"
+                  startTime: "2024-01-15T10:00:00Z"
+                  endTime: "2024-01-15T10:30:00Z"
+                  status: "planeeritud"
+                - id: "apt-223e4567-e89b-12d3-a456-426614174001"
+                  eventId: "evt-223e4567-e89b-12d3-a456-426614174001"
+                  userId: "user-123e4567-e89b-12d3-a456-426614174000"
+                  inviteeEmail: "peeter.puu@näide.ee"
+                  startTime: "2024-01-16T14:00:00Z"
+                  endTime: "2024-01-16T15:00:00Z"
+                  status: "planeeritud"
+
+  /appointments/{appointmentId}:
+    patch:
+      security:
+        - BearerAuth: []
+      tags:
+        - Kohtumised
+      summary: Muuda kohtumise andmeid
+      description: Muuda kohtumise välju ID järgi.
+      parameters:
+        - name: appointmentId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Muudetava kohtumise ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentPatch'
+            example:
+              status: "tühistatud"
+              startTime: "2024-01-15T11:00:00Z"
+              endTime: "2024-01-15T11:30:00Z"
+      responses:
+        '200':
+          description: Kohtumise andmed edukalt muudetud
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+              example:
+                id: "apt-123e4567-e89b-12d3-a456-426614174000"
+                eventId: "evt-123e4567-e89b-12d3-a456-426614174000"
+                userId: "user-123e4567-e89b-12d3-a456-426614174000"
+                inviteeEmail: "mari.mets@näide.ee"
+                startTime: "2024-01-15T11:00:00Z"
+                endTime: "2024-01-15T11:30:00Z"
+                status: "tühistatud"
+
+    delete:
+      security:
+        - BearerAuth: []
+      tags:
+        - Kohtumised
+      summary: Kustuta kohtumine
+      description: Kustuta konkreetne kohtumine ID järgi.
+      parameters:
+        - name: appointmentId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Kustutatava kohtumise ID.
+      responses:
+        '204':
+          description: Kohtumine edukalt kustutatud
+        '404':
+          description: Kohtumist ei leitud
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Ressurssi ei leitud"
+
+    get:
+      security:
+        - BearerAuth: []
+      tags:
+        - Kohtumised
+      summary: Kuva kohtumise detailid
+      description: Hangi konkreetse kohtumise detailid ID järgi.
+      parameters:
+        - name: appointmentId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Kohtumise ID, mille detaile soovitakse.
+      responses:
+        '200':
+          description: Kohtumise detailid edukalt hangitud
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+              example:
+                id: "apt-123e4567-e89b-12d3-a456-426614174000"
+                eventId: "evt-123e4567-e89b-12d3-a456-426614174000"
+                userId: "user-123e4567-e89b-12d3-a456-426614174000"
+                inviteeEmail: "mari.mets@näide.ee"
+                startTime: "2024-01-15T10:00:00Z"
+                endTime: "2024-01-15T10:30:00Z"
+                status: "planeeritud"
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        timezone:
+          type: string
+        token:
+          type: string
+      required:
+        - id
+        - name
+        - email
+        - password
+
+    UserPatch:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        timezone:
+          type: string
+      minProperties: 1
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+      required:
+        - page
+        - pageSize
+        - total
+
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Vigane päring"
+      required:
+        - message
+
+    EventType:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        duration:
+          type: integer
+        description:
+          type: string
+        color:
+          type: string
+      required:
+        - name
+        - duration
+
+    Event:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        duration:
+          type: integer
+        description:
+          type: string
+        color:
+          type: string
+      required:
+        - id
+        - name
+        - duration
+
+    EventPatch:
+      type: object
+      properties:
+        name:
+          type: string
+        duration:
+          type: integer
+        description:
+          type: string
+        color:
+          type: string
+      minProperties: 1
+
+    Schedule:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        availability:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeSlot'
+      required:
+        - id
+        - userId
+        - availability
+
+    ScheduleInput:
+      type: object
+      properties:
+        userId:
+          type: string
+        availability:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeSlot'
+      required:
+        - userId
+        - availability
+
+    TimeSlot:
+      type: object
+      properties:
+        day:
+          type: string
+          enum: [monday, tuesday, wednesday, thursday, friday, saturday, sunday]
+        startTime:
+          type: string
+          format: time
+        endTime:
+          type: string
+          format: time
+      required:
+        - day
+        - startTime
+        - endTime
+
+    SchedulePatch:
+      type: object
+      properties:
+        availability:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeSlot'
+      minProperties: 1
+
+    Appointment:
+      type: object
+      properties:
+        id:
+          type: string
+        eventId:
+          type: string
+        userId:
+          type: string
+        inviteeEmail:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [planeeritud, tühistatud, lõpetatud]
+      required:
+        - eventId
+        - userId
+        - inviteeEmail
+        - startTime
+
+    AppointmentPatch:
+      type: object
+      properties:
+        eventId:
+          type: string
+        userId:
+          type: string
+        inviteeEmail:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [planeeritud, tühistatud, lõpetatud]
+      minProperties: 1
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Token

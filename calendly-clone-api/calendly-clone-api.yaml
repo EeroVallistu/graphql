@@ -1,0 +1,1371 @@
+openapi: 3.0.0
+info:
+  title: Calendly Clone API
+  description: |
+    API for scheduling and managing appointments
+    
+    Documentation available in:
+    - [English](/en)
+    - [Estonian](/et)
+  version: 1.0.0
+servers:
+  - url: /
+    description: Main API endpoint
+paths:
+  /users:
+    get:
+      security:
+        - BearerAuth: []
+      tags:
+        - Users
+      summary: List all users
+      description: Retrieve a paginated list of all users.
+      parameters:
+        - name: page
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: The page number to retrieve.
+        - name: pageSize
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: The number of users to return per page.
+      responses:
+        '200':
+          description: List of users retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+              example:
+                data:
+                  - id: "user-123e4567-e89b-12d3-a456-426614174000"
+                    name: "John Doe"
+                    email: "john.doe@example.com"
+                    timezone: "America/New_York"
+                  - id: "user-223e4567-e89b-12d3-a456-426614174001"
+                    name: "Jane Smith"
+                    email: "jane.smith@example.com"
+                    timezone: "Europe/London"
+                  - id: "user-323e4567-e89b-12d3-a456-426614174002"
+                    name: "Bob Johnson"
+                    email: "bob.johnson@example.com"
+                    timezone: "Asia/Tokyo"
+                pagination:
+                  page: 1
+                  pageSize: 20
+                  total: 3
+        '400':
+          description: Invalid pagination parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Invalid pagination parameters"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags:
+        - Users
+      summary: Create a new user
+      description: Create a new user with a name, email, password, and optional timezone.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+            example:
+              name: "John Doe"
+              email: "john.doe@example.com"
+              password: "securePassword123!"
+              timezone: "America/New_York"
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+              example:
+                id: "user-123e4567-e89b-12d3-a456-426614174000"
+                name: "John Doe"
+                email: "john.doe@example.com"
+                timezone: "America/New_York"
+                token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJ1c2VyLTEyM2U0NTY3LWU4OWItMTJkMy1hNDU2LTQyNjYxNDE3NDAwMCIsImlhdCI6MTUxNjIzOTAyMn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Email is already in use or invalid format"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  
+  /users/{userId}:
+    get:
+      security:
+        - BearerAuth: []
+      tags:
+        - Users
+      summary: Get user details
+      description: Retrieve details of a specific user by their ID.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the user to retrieve.
+      responses:
+        '200':
+          description: User details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+              example:
+                id: "user-123e4567-e89b-12d3-a456-426614174000"
+                name: "John Doe"
+                email: "john.doe@example.com"
+                timezone: "America/New_York"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Authentication required"
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "User with ID user-123e4567 not found"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      security:
+        - BearerAuth: []
+      tags:
+        - Users
+      summary: Partially update a user
+      description: Update specific fields of a user by their ID.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the user to update.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserPatch'
+            example:
+              name: "John D. Doe"
+              timezone: "Europe/Paris"
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+              example:
+                id: "user-123e4567-e89b-12d3-a456-426614174000"
+                name: "John D. Doe"
+                email: "john.doe@example.com"
+                timezone: "Europe/Paris"
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Invalid timezone format"
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "User with ID user-123e4567 not found"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      security:
+        - BearerAuth: []
+      tags:
+        - Users
+      summary: Delete a user
+      description: Delete a specific user by their ID.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the user to delete.
+      responses:
+        '204':
+          description: User deleted successfully
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Resource not found"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /sessions:
+    post:
+      tags:
+        - Authentication
+      summary: Create session (login)
+      description: Authenticate user and create session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+              required:
+                - email
+                - password
+            example:
+              email: "john.doe@example.com"
+              password: "securePassword123!"
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+              example:
+                token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJ1c2VyLTEyM2U0NTY3LWU4OWItMTJkMy1hNDU2LTQyNjYxNDE3NDAwMCIsImlhdCI6MTUxNjIzOTAyMn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+                user:
+                  id: "user-123e4567-e89b-12d3-a456-426614174000"
+                  name: "John Doe"
+                  email: "john.doe@example.com"
+                  timezone: "America/New_York"
+        '400':
+          description: Missing email or password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Email and password are required"
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Invalid email or password"
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "An error occurred during authentication"
+
+    delete:
+      tags:
+        - Authentication
+      summary: Destroy session (logout)
+      description: End user session
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+              example:
+                message: "Successfully logged out"
+        '400':
+          description: No token provided
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "No token provided"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Authentication required"
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "An error occurred during logout"
+
+  /events:
+    post:
+      security:
+        - BearerAuth: []
+      tags:
+        - Events
+      summary: Create a new event type
+      description: Create a new event type with a name, duration, and optional details.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventType'
+            example:
+              name: "30 Minute Meeting"
+              duration: 30
+              description: "Short consultation call"
+              color: "#4CAF50"
+      responses:
+        '201':
+          description: Event type created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventType'
+              example:
+                id: "evt-123e4567-e89b-12d3-a456-426614174000"
+                name: "30 Minute Meeting"
+                duration: 30
+                description: "Short consultation call"
+                color: "#4CAF50"
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Invalid input"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      security:
+        - BearerAuth: []
+      tags:
+        - Events
+      summary: List all events
+      description: Retrieve a list of all event types.
+      responses:
+        '200':
+          description: List of events retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+              example:
+                - id: "evt-123e4567-e89b-12d3-a456-426614174000"
+                  name: "30 Minute Meeting"
+                  duration: 30
+                  description: "Short consultation call"
+                  color: "#4CAF50"
+                - id: "evt-223e4567-e89b-12d3-a456-426614174001"
+                  name: "60 Minute Meeting"
+                  duration: 60
+                  description: "In-depth discussion"
+                  color: "#2196F3"
+                - id: "evt-323e4567-e89b-12d3-a456-426614174002"
+                  name: "15 Minute Coffee Chat"
+                  duration: 15
+                  description: "Quick catch-up"
+                  color: "#FF9800"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /events/{eventId}:
+    get:
+      security:
+        - BearerAuth: []
+      tags:
+        - Events
+      summary: Get event details
+      description: Retrieve details of a specific event by its ID.
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the event to retrieve.
+      responses:
+        '200':
+          description: Event found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+              example:
+                id: "evt-123e4567-e89b-12d3-a456-426614174000"
+                name: "30 Minute Meeting"
+                duration: 30
+                description: "Short consultation call"
+                color: "#4CAF50"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Authentication required"
+        '404':
+          description: Event not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Event with ID evt-123e4567 not found"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      security:
+        - BearerAuth: []
+      tags:
+        - Events
+      summary: Partially update an event
+      description: Update specific fields of an event by its ID.
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the event to update.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventPatch'
+            example:
+              name: "45 Minute Meeting"
+              duration: 45
+              description: "Extended consultation call"
+              color: "#9C27B0"
+      responses:
+        '200':
+          description: Event updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventType'
+              example:
+                id: "evt-123e4567-e89b-12d3-a456-426614174000"
+                name: "45 Minute Meeting"
+                duration: 45
+                description: "Extended consultation call"
+                color: "#9C27B0"
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Duration must be a positive number"
+        '404':
+          description: Event not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      security:
+        - BearerAuth: []
+      tags:
+        - Events
+      summary: Delete an event
+      description: Delete a specific event by its ID.
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the event to delete.
+      responses:
+        '204':
+          description: Event deleted successfully
+        '404':
+          description: Event not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Resource not found"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /schedules:
+    post:
+      security:
+        - BearerAuth: []
+      tags:
+        - Schedules
+      summary: Create a new schedule
+      description: Create a new schedule for a user with their availability.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScheduleInput'
+            example:
+              userId: "user-123e4567-e89b-12d3-a456-426614174000"
+              availability:
+                - day: monday
+                  startTime: "09:00"
+                  endTime: "17:00"
+                - day: tuesday
+                  startTime: "09:00"
+                  endTime: "17:00"
+                - day: wednesday
+                  startTime: "09:00"
+                  endTime: "17:00"
+                - day: thursday
+                  startTime: "09:00"
+                  endTime: "17:00"
+                - day: friday
+                  startTime: "09:00"
+                  endTime: "16:00"
+      responses:
+        '201':
+          description: Schedule created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Schedule'
+              example:
+                id: "sched-123e4567-e89b-12d3-a456-426614174000"
+                userId: "user-123e4567-e89b-12d3-a456-426614174000"
+                availability:
+                  - day: monday
+                    startTime: "09:00"
+                    endTime: "17:00"
+                  - day: tuesday
+                    startTime: "09:00"
+                    endTime: "17:00"
+                  - day: wednesday
+                    startTime: "09:00"
+                    endTime: "17:00"
+                  - day: thursday
+                    startTime: "09:00"
+                    endTime: "17:00"
+                  - day: friday
+                    startTime: "09:00"
+                    endTime: "16:00"
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Invalid input"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Internal server error"
+
+    get:
+      security:
+        - BearerAuth: []
+      tags:
+        - Schedules
+      summary: List all schedules
+      description: Retrieve a list of all schedules.
+      responses:
+        '200':
+          description: List of schedules retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Schedule'
+              example:
+                - id: "sched-123e4567-e89b-12d3-a456-426614174000"
+                  userId: "user-123e4567-e89b-12d3-a456-426614174000"
+                  availability:
+                    - day: monday
+                      startTime: "09:00"
+                      endTime: "17:00"
+                    - day: tuesday
+                      startTime: "09:00"
+                      endTime: "17:00"
+                    - day: wednesday
+                      startTime: "09:00"
+                      endTime: "17:00"
+                - id: "sched-223e4567-e89b-12d3-a456-426614174001"
+                  userId: "user-223e4567-e89b-12d3-a456-426614174001"
+                  availability:
+                    - day: monday
+                      startTime: "10:00"
+                      endTime: "18:00"
+                    - day: wednesday
+                      startTime: "10:00"
+                      endTime: "18:00"
+                    - day: friday
+                      startTime: "10:00"
+                      endTime: "18:00"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /schedules/{userId}:
+    get:
+      security:
+        - BearerAuth: []
+      tags:
+        - Schedules
+      summary: Get user's schedule
+      description: Retrieve the schedule for a specific user by their ID.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the user whose schedule to retrieve.
+      responses:
+        '200':
+          description: Schedule retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Schedule'
+              example:
+                id: "sched-123e4567-e89b-12d3-a456-426614174000"
+                userId: "user-123e4567-e89b-12d3-a456-426614174000"
+                availability:
+                  - day: monday
+                    startTime: "09:00"
+                    endTime: "17:00"
+                  - day: tuesday
+                    startTime: "09:00"
+                    endTime: "17:00"
+                  - day: wednesday
+                    startTime: "09:00"
+                    endTime: "17:00"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Authentication required to view schedule"
+        '404':
+          description: Schedule not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Schedule not found for user user-123e4567"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Internal server error while retrieving schedule"
+    patch:
+      security:
+        - BearerAuth: []
+      tags:
+        - Schedules
+      summary: Partially update a user's schedule
+      description: Update specific fields of a user's schedule by their ID.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the user whose schedule to update.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SchedulePatch'
+            example:
+              availability:
+                - day: monday
+                  startTime: "10:00"
+                  endTime: "18:00"
+                - day: wednesday
+                  startTime: "10:00"
+                  endTime: "18:00"
+                - day: friday
+                  startTime: "10:00"
+                  endTime: "16:00"
+      responses:
+        '200':
+          description: Schedule updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Schedule'
+              example:
+                id: "sched-123e4567-e89b-12d3-a456-426614174000"
+                userId: "user-123e4567-e89b-12d3-a456-426614174000"
+                availability:
+                  - day: monday
+                    startTime: "10:00"
+                    endTime: "18:00"
+                  - day: wednesday
+                    startTime: "10:00"
+                    endTime: "18:00"
+                  - day: friday
+                    startTime: "10:00"
+                    endTime: "16:00"
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Invalid time format. Start time must be before end time."
+        '404':
+          description: Schedule not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Schedule not found for user with ID user-123e4567"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      security:
+        - BearerAuth: []
+      tags:
+        - Schedules
+      summary: Delete a schedule
+      description: Delete the schedule for a specific user by their ID.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the user whose schedule to delete.
+      responses:
+        '204':
+          description: Schedule deleted successfully
+        '404':
+          description: Schedule not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Resource not found"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Internal server error"
+
+  /appointments:
+    post:
+      security:
+        - BearerAuth: []
+      tags:
+        - Appointments
+      summary: Schedule an appointment
+      description: Schedule a new appointment for an event with a user and invitee.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Appointment'
+            example:
+              eventId: "evt-123e4567-e89b-12d3-a456-426614174000"
+              userId: "user-123e4567-e89b-12d3-a456-426614174000"
+              inviteeEmail: "jane.smith@example.com"
+              startTime: "2024-01-15T10:00:00Z"
+              endTime: "2024-01-15T10:30:00Z"
+              status: "scheduled"
+      responses:
+        '201':
+          description: Appointment scheduled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+              example:
+                id: "apt-123e4567-e89b-12d3-a456-426614174000"
+                eventId: "evt-123e4567-e89b-12d3-a456-426614174000"
+                userId: "user-123e4567-e89b-12d3-a456-426614174000"
+                inviteeEmail: "jane.smith@example.com"
+                startTime: "2024-01-15T10:00:00Z"
+                endTime: "2024-01-15T10:30:00Z"
+                status: "scheduled"
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Invalid input"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      security:
+        - BearerAuth: []
+      tags:
+        - Appointments
+      summary: List all appointments
+      description: Retrieve a list of all appointments.
+      responses:
+        '200':
+          description: List of appointments retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Appointment'
+              example:
+                - id: "apt-123e4567-e89b-12d3-a456-426614174000"
+                  eventId: "evt-123e4567-e89b-12d3-a456-426614174000"
+                  userId: "user-123e4567-e89b-12d3-a456-426614174000"
+                  inviteeEmail: "jane.smith@example.com"
+                  startTime: "2024-01-15T10:00:00Z"
+                  endTime: "2024-01-15T10:30:00Z"
+                  status: "scheduled"
+                - id: "apt-223e4567-e89b-12d3-a456-426614174001"
+                  eventId: "evt-223e4567-e89b-12d3-a456-426614174001"
+                  userId: "user-123e4567-e89b-12d3-a456-426614174000"
+                  inviteeEmail: "bob.johnson@example.com"
+                  startTime: "2024-01-16T14:00:00Z"
+                  endTime: "2024-01-16T15:00:00Z"
+                  status: "scheduled"
+                - id: "apt-323e4567-e89b-12d3-a456-426614174002"
+                  eventId: "evt-323e4567-e89b-12d3-a456-426614174002"
+                  userId: "user-123e4567-e89b-12d3-a456-426614174000"
+                  inviteeEmail: "alice.white@example.com"
+                  startTime: "2024-01-15T15:00:00Z"
+                  endTime: "2024-01-15T15:15:00Z"
+                  status: "completed"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /appointments/{appointmentId}:
+    patch:
+      security:
+        - BearerAuth: []
+      tags:
+        - Appointments
+      summary: Partially update an appointment
+      description: Update specific fields of an appointment by its ID.
+      parameters:
+        - name: appointmentId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the appointment to update.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentPatch'
+            example:
+              status: "canceled"
+              startTime: "2024-01-15T11:00:00Z"
+              endTime: "2024-01-15T11:30:00Z"
+      responses:
+        '200':
+          description: Appointment updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+              example:
+                id: "apt-123e4567-e89b-12d3-a456-426614174000"
+                eventId: "evt-123e4567-e89b-12d3-a456-426614174000"
+                userId: "user-123e4567-e89b-12d3-a456-426614174000"
+                inviteeEmail: "jane.smith@example.com"
+                startTime: "2024-01-15T11:00:00Z"
+                endTime: "2024-01-15T11:30:00Z"
+                status: "canceled"
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Invalid appointment time or status"
+        '404':
+          description: Appointment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Appointment with ID apt-123e4567 not found"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      security:
+        - BearerAuth: []
+      tags:
+        - Appointments
+      summary: Delete an appointment
+      description: Delete a specific appointment by its ID.
+      parameters:
+        - name: appointmentId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the appointment to delete.
+      responses:
+        '204':
+          description: Appointment deleted successfully
+        '404':
+          description: Appointment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Resource not found"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      security:
+        - BearerAuth: []
+      tags:
+        - Appointments
+      summary: Get appointment details
+      description: Retrieve details of a specific appointment by its ID.
+      parameters:
+        - name: appointmentId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the appointment to retrieve.
+      responses:
+        '200':
+          description: Appointment details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+              example:
+                id: "apt-123e4567-e89b-12d3-a456-426614174000"
+                eventId: "evt-123e4567-e89b-12d3-a456-426614174000"
+                userId: "user-123e4567-e89b-12d3-a456-426614174000"
+                inviteeEmail: "jane.smith@example.com"
+                startTime: "2024-01-15T10:00:00Z"
+                endTime: "2024-01-15T10:30:00Z"
+                status: "scheduled"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Authentication required"
+        '404':
+          description: Appointment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Appointment with ID apt-123e4567 not found"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+      required:
+        - page
+        - pageSize
+        - total
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        timezone:
+          type: string
+        token:
+          type: string  # Token is optional
+      required:
+        - id
+        - name
+        - email
+        - password
+
+    EventType:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        duration:
+          type: integer
+        description:
+          type: string
+        color:
+          type: string
+      required:
+        - name
+        - duration
+
+    Schedule:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        availability:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeSlot'
+      required:
+        - id
+        - userId
+        - availability
+
+    ScheduleInput:
+      type: object
+      properties:
+        userId:
+          type: string
+        availability:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeSlot'
+      required:
+        - userId
+        - availability
+
+    TimeSlot:
+      type: object
+      properties:
+        day:
+          type: string
+          enum: [monday, tuesday, wednesday, thursday, friday, saturday, sunday]
+        startTime:
+          type: string
+          format: time
+        endTime:
+          type: string
+          format: time
+      required:
+        - day
+        - startTime
+        - endTime
+
+    Appointment:
+      type: object
+      properties:
+        id:
+          type: string
+        eventId:
+          type: string
+        userId:
+          type: string
+        inviteeEmail:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [scheduled, canceled, completed]
+      required:
+        - eventId
+        - userId
+        - inviteeEmail
+        - startTime
+
+    Event:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        duration:
+          type: integer
+        description:
+          type: string
+        color:
+          type: string
+      required:
+        - id
+        - name
+        - duration
+
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Bad Request"
+      required:
+        - message
+
+    UserPatch:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        timezone:
+          type: string
+      minProperties: 1  # At least one field must be provided
+
+    EventPatch:
+      type: object
+      properties:
+        name:
+          type: string
+        duration:
+          type: integer
+        description:
+          type: string
+        color:
+          type: string
+      minProperties: 1  # At least one field must be provided
+
+    SchedulePatch:
+      type: object
+      properties:
+        availability:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeSlot'
+      minProperties: 1  # At least one field must be provided
+
+    AppointmentPatch:
+      type: object
+      properties:
+        eventId:
+          type: string
+        userId:
+          type: string
+        inviteeEmail:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+      minProperties: 1  # At least one field must be provided
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Token
