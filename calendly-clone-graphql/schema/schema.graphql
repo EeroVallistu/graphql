@@ -1,0 +1,169 @@
+# Main schema definition file for the Calendly Clone GraphQL Service
+
+# Scalar for custom date time format
+scalar DateTime
+
+# Base types
+type User {
+  id: ID!
+  name: String!
+  email: String!
+  timezone: String
+}
+
+type Event {
+  id: ID!
+  name: String!
+  duration: Int!
+  description: String
+  color: String
+  userId: ID!
+  isOwner: Boolean
+}
+
+type Appointment {
+  id: ID!
+  eventId: ID!
+  userId: ID!
+  inviteeEmail: String!
+  startTime: DateTime!
+  endTime: DateTime!
+  status: String!
+}
+
+type Schedule {
+  id: ID
+  userId: ID!
+  availability: JSON
+}
+
+# Custom scalar for JSON objects
+scalar JSON
+
+# Authentication types
+type AuthPayload {
+  token: String!
+}
+
+# Pagination type for lists
+type PaginationInfo {
+  page: Int!
+  pageSize: Int!
+  total: Int!
+}
+
+type UserResponse {
+  data: [User!]!
+  pagination: PaginationInfo
+}
+
+# Input types for mutations
+input CreateUserInput {
+  name: String!
+  email: String!
+  password: String!
+  timezone: String
+}
+
+input UpdateUserInput {
+  name: String
+  email: String
+  password: String
+  timezone: String
+}
+
+input CreateEventInput {
+  name: String!
+  duration: Int!
+  description: String
+  color: String
+}
+
+input UpdateEventInput {
+  name: String
+  duration: Int
+  description: String
+  color: String
+}
+
+input CreateAppointmentInput {
+  eventId: ID!
+  inviteeEmail: String!
+  startTime: DateTime!
+  endTime: DateTime!
+}
+
+input UpdateAppointmentInput {
+  eventId: ID
+  inviteeEmail: String
+  startTime: DateTime
+  endTime: DateTime
+  status: String
+}
+
+input ScheduleAvailabilityInput {
+  userId: ID!
+  availability: JSON!
+}
+
+input LoginInput {
+  email: String!
+  password: String!
+}
+
+# Error type
+type Error {
+  message: String!
+  code: String
+}
+
+# Union type for response that might return an error
+union UserResult = User | Error
+union EventResult = Event | Error
+union AppointmentResult = Appointment | Error
+union ScheduleResult = Schedule | Error
+
+# Main GraphQL entry points
+type Query {
+  # User queries
+  users(page: Int = 1, pageSize: Int = 20): UserResponse!
+  user(userId: ID!): UserResult!
+  
+  # Event queries
+  event(eventId: ID!): EventResult!
+  events(userId: ID!): [Event!]!
+  
+  # Schedule queries
+  schedule(userId: ID!): ScheduleResult!
+  schedules: [Schedule!]!
+  
+  # Appointment queries
+  appointment(appointmentId: ID!): AppointmentResult!
+  appointments(userId: ID!, status: String): [Appointment!]!
+}
+
+type Mutation {
+  # User mutations
+  createUser(input: CreateUserInput!): UserResult!
+  updateUser(userId: ID!, input: UpdateUserInput!): UserResult!
+  deleteUser(userId: ID!): Boolean!
+  
+  # Authentication mutations
+  login(input: LoginInput!): AuthPayload!
+  logout: Boolean!
+  
+  # Event mutations
+  createEvent(input: CreateEventInput!): EventResult!
+  updateEvent(eventId: ID!, input: UpdateEventInput!): EventResult!
+  deleteEvent(eventId: ID!): Boolean!
+  
+  # Schedule mutations
+  createSchedule(input: ScheduleAvailabilityInput!): ScheduleResult!
+  updateSchedule(userId: ID!, input: ScheduleAvailabilityInput!): ScheduleResult!
+  deleteSchedule(userId: ID!): Boolean!
+  
+  # Appointment mutations
+  createAppointment(input: CreateAppointmentInput!): AppointmentResult!
+  updateAppointment(appointmentId: ID!, input: UpdateAppointmentInput!): AppointmentResult!
+  deleteAppointment(appointmentId: ID!): Boolean!
+}
