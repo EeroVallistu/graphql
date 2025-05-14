@@ -40,10 +40,19 @@ export const resolvers = {
       return 'Event';
     },
   },
-  
-  AppointmentResult: {
+    AppointmentResult: {
     __resolveType(obj) {
+      console.log('AppointmentResult __resolveType called with:', obj);
       if (obj.message) return 'Error';
+      
+      // Check if we have the required fields for an Appointment
+      const hasAppointmentFields = obj.id && obj.eventId && obj.userId && obj.inviteeEmail;
+      console.log('Has appointment fields:', hasAppointmentFields);
+      
+      if (!hasAppointmentFields) {
+        console.log('Warning: Object does not have required Appointment fields:', obj);
+      }
+      
       return 'Appointment';
     },
   },

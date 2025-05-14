@@ -6,7 +6,7 @@ import { isValidHexColor } from '../utils/validators.js';
 // Helper function to check auth
 const checkAuth = (context) => {
   if (!context.user) {
-    throw new Error('Authentication required');
+    return null;
   }
   return context.user;
 };
@@ -14,23 +14,26 @@ const checkAuth = (context) => {
 // Helper function to check event ownership
 const checkEventOwnership = async (eventId, context) => {
   const user = checkAuth(context);
+  if (!user) {
+    return { authorized: false, error: 'Authentication required' };
+  }
   
   try {
     const stmt = db.prepare('SELECT userId FROM events WHERE id = ?');
     const event = stmt.get(eventId);
     
     if (!event) {
-      throw new Error('Event not found');
+      return { authorized: false, error: 'Event not found' };
     }
     
     if (event.userId !== user.id) {
-      throw new Error('Forbidden: You can only modify your own events');
+      return { authorized: false, error: 'Forbidden: You can only modify your own events' };
     }
     
-    return user;
+    return { authorized: true, user };
   } catch (error) {
     console.error('Database error:', error);
-    throw new Error('Database error');
+    return { authorized: false, error: 'Database error' };
   }
 };
 
@@ -39,6 +42,9 @@ export const eventResolvers = {
     // Get event by ID
     event: (_, { eventId }, context) => {
       const user = checkAuth(context);
+      if (!user) {
+        return { message: 'Authentication required', code: 'UNAUTHORIZED' };
+      }
       
       try {
         const stmt = db.prepare('SELECT * FROM events WHERE id = ?');
@@ -58,17 +64,20 @@ export const eventResolvers = {
         return event;
       } catch (error) {
         console.error('Database error:', error);
-        throw new Error('Database error');
+        return { message: 'Database error', code: 'DATABASE_ERROR' };
       }
     },
     
     // Get all events for a user
     events: (_, { userId }, context) => {
       const user = checkAuth(context);
+      if (!user) {
+        return [];
+      }
       
       // Users can view their own events
       if (userId !== user.id) {
-        throw new Error('Forbidden: You can only access your own events');
+        return [];
       }
       
       try {
@@ -79,7 +88,7 @@ export const eventResolvers = {
         return events.map(event => ({ ...event, isOwner: true }));
       } catch (error) {
         console.error('Database error:', error);
-        throw new Error('Database error');
+        return [];
       }
     }
   },
@@ -90,6 +99,10 @@ export const eventResolvers = {
       const { name, duration, description, color } = input;
       const user = checkAuth(context);
       
+      if (!user) {
+        return { message: 'Authentication required', code: 'UNAUTHORIZED' };
+      }
+      
       if (!name || !duration) {
         return { message: 'Name and duration are required', code: 'BAD_INPUT' };
       }
@@ -97,25 +110,49 @@ export const eventResolvers = {
       if (color && !isValidHexColor(color)) {
         return { message: 'Color must be a valid hex color (e.g., #FF0000)', code: 'BAD_INPUT' };
       }
-      
-      try {
+        try {
         const id = crypto.randomUUID();
         
-        const stmt = db.prepare('INSERT INTO events (id, name, duration, description, color, userId) VALUES (?, ?, ?, ?, ?, ?)');
-        stmt.run(id, name, duration, description, color, user.id);
+        console.log('Creating new event:', { id, name, duration, description, color, userId: user.id });
         
-        return { 
-          id, 
-          name, 
-          duration, 
-          description, 
-          color, 
-          userId: user.id,
-          isOwner: true
-        };
+        // Use a transaction to ensure data is committed
+        db.exec('BEGIN TRANSACTION');
+        
+        try {
+          const stmt = db.prepare('INSERT INTO events (id, name, duration, description, color, userId) VALUES (?, ?, ?, ?, ?, ?)');
+          const result = stmt.run(id, name, duration, description, color, user.id);
+          
+          console.log('Insert event result:', result);
+            // Commit the transaction
+          db.exec('COMMIT');
+          console.log('Event created and committed to database');
+          
+          // Verify event was actually created in database
+          const wasInserted = DatabaseVerifier.verifyEvent(id);
+          console.log('Event verified in database:', wasInserted);
+          
+          // Print database path for debugging
+          DatabaseVerifier.getDatabasePath();
+          DatabaseVerifier.countRows('events');
+          
+          return { 
+            id, 
+            name, 
+            duration, 
+            description, 
+            color, 
+            userId: user.id,
+            isOwner: true
+          };
+        } catch (txError) {
+          // Rollback on error
+          console.error('Transaction error:', txError);
+          db.exec('ROLLBACK');
+          throw txError;
+        }
       } catch (error) {
         console.error('Database error:', error);
-        throw new Error('Database error');
+        return { message: error.message, code: 'DATABASE_ERROR' };
       }
     },
     
@@ -124,13 +161,16 @@ export const eventResolvers = {
       const { name, duration, description, color } = input;
       
       // Check event ownership
-      await checkEventOwnership(eventId, context);
+      const authCheck = await checkEventOwnership(eventId, context);
+      if (!authCheck.authorized) {
+        return { message: authCheck.error, code: 'UNAUTHORIZED' };
+      }
       
-      if (!name && !duration && !description && !color) {
+      if (!name && !duration && !description && color === undefined) {
         return { message: 'At least one field is required', code: 'BAD_INPUT' };
       }
       
-      if (color && !isValidHexColor(color)) {
+      if (color !== undefined && color !== null && !isValidHexColor(color)) {
         return { message: 'Color must be a valid hex color (e.g., #FF0000)', code: 'BAD_INPUT' };
       }
       
@@ -173,27 +213,26 @@ export const eventResolvers = {
         return updatedEvent;
       } catch (error) {
         console.error('Database error:', error);
-        throw new Error('Database error');
+        return { message: error.message, code: 'DATABASE_ERROR' };
       }
     },
     
     // Delete an event
     deleteEvent: async (_, { eventId }, context) => {
       // Check event ownership
-      await checkEventOwnership(eventId, context);
+      const authCheck = await checkEventOwnership(eventId, context);
+      if (!authCheck.authorized) {
+        return false;
+      }
       
       try {
         const stmt = db.prepare('DELETE FROM events WHERE id = ?');
         const result = stmt.run(eventId);
         
-        if (result.changes === 0) {
-          throw new Error('Event not found');
-        }
-        
-        return true;
+        return result.changes > 0;
       } catch (error) {
         console.error('Database error:', error);
-        throw new Error('Database error');
+        return false;
       }
     }
   }

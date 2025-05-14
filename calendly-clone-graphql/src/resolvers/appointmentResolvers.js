@@ -6,7 +6,7 @@ import { isValidEmail } from '../utils/validators.js';
 // Helper function to check auth
 const checkAuth = (context) => {
   if (!context.user) {
-    throw new Error('Authentication required');
+    return null;
   }
   return context.user;
 };
@@ -14,23 +14,26 @@ const checkAuth = (context) => {
 // Helper function to check appointment ownership
 const checkAppointmentOwnership = async (appointmentId, context) => {
   const user = checkAuth(context);
+  if (!user) {
+    return { authorized: false, error: 'Authentication required' };
+  }
   
   try {
     const stmt = db.prepare('SELECT userId FROM appointments WHERE id = ?');
     const appointment = stmt.get(appointmentId);
     
     if (!appointment) {
-      throw new Error('Appointment not found');
+      return { authorized: false, error: 'Appointment not found' };
     }
     
     if (appointment.userId !== user.id) {
-      throw new Error('Forbidden: You can only modify your own appointments');
+      return { authorized: false, error: 'Forbidden: You can only modify your own appointments' };
     }
     
-    return user;
+    return { authorized: true, user };
   } catch (error) {
     console.error('Database error:', error);
-    throw new Error('Database error');
+    return { authorized: false, error: 'Database error' };
   }
 };
 
@@ -38,11 +41,14 @@ export const appointmentResolvers = {
   Query: {
     // Get appointment by ID
     appointment: async (_, { appointmentId }, context) => {
+      const user = checkAuth(context);
+      if (!user) {
+        return { message: 'Authentication required', code: 'UNAUTHORIZED' };
+      }
+      
       try {
-        await checkAppointmentOwnership(appointmentId, context);
-        
-        const stmt = db.prepare('SELECT * FROM appointments WHERE id = ?');
-        const appointment = stmt.get(appointmentId);
+        const stmt = db.prepare('SELECT * FROM appointments WHERE id = ? AND userId = ?');
+        const appointment = stmt.get(appointmentId, user.id);
         
         if (!appointment) {
           return { message: 'Appointment not found', code: 'NOT_FOUND' };
@@ -50,23 +56,21 @@ export const appointmentResolvers = {
         
         return appointment;
       } catch (error) {
-        if (error.message.includes('Appointment not found')) {
-          return { message: 'Appointment not found', code: 'NOT_FOUND' };
-        } else if (error.message.includes('Forbidden')) {
-          return { message: error.message, code: 'FORBIDDEN' };
-        }
         console.error('Database error:', error);
-        throw new Error('Database error');
+        return { message: error.message, code: 'DATABASE_ERROR' };
       }
     },
     
     // Get all appointments for a user, optionally filtered by status
     appointments: (_, { userId, status }, context) => {
       const user = checkAuth(context);
+      if (!user) {
+        return [];
+      }
       
       // Users can only see their own appointments
       if (userId !== user.id) {
-        throw new Error('Forbidden: You can only access your own appointments');
+        return [];
       }
       
       try {
@@ -82,7 +86,7 @@ export const appointmentResolvers = {
         return stmt.all(...params);
       } catch (error) {
         console.error('Database error:', error);
-        throw new Error('Database error');
+        return [];
       }
     }
   },
@@ -92,6 +96,11 @@ export const appointmentResolvers = {
     createAppointment: (_, { input }, context) => {
       const { eventId, inviteeEmail, startTime, endTime } = input;
       const user = checkAuth(context);
+      
+      if (!user) {
+        return { message: 'Authentication required', code: 'UNAUTHORIZED' };
+      }
+      
       const status = 'scheduled'; // Default status
       
       if (!eventId || !inviteeEmail || !startTime || !endTime) {
@@ -100,20 +109,60 @@ export const appointmentResolvers = {
       
       if (!isValidEmail(inviteeEmail)) {
         return { message: 'Invalid invitee email format', code: 'BAD_INPUT' };
-      }
-      
-      try {
+      }      try {
+        // Verify event exists and belongs to user
+        const eventStmt = db.prepare('SELECT id FROM events WHERE id = ? AND userId = ?');
+        const event = eventStmt.get(eventId, user.id);
+        
+        if (!event) {
+          return { message: 'Event not found or access denied', code: 'NOT_FOUND' };
+        }
+        
         const id = crypto.randomUUID();
+        console.log('Creating new appointment:', { id, eventId, inviteeEmail, startTime, endTime, status });
         
-        const stmt = db.prepare(
-          'INSERT INTO appointments (id, eventId, userId, inviteeEmail, startTime, endTime, status) VALUES (?, ?, ?, ?, ?, ?, ?)'
-        );
-        stmt.run(id, eventId, user.id, inviteeEmail, startTime, endTime, status);
+        // Use a transaction to ensure data is committed
+        db.exec('BEGIN TRANSACTION');
         
-        return { id, eventId, userId: user.id, inviteeEmail, startTime, endTime, status };
+        try {
+          const stmt = db.prepare(
+            'INSERT INTO appointments (id, eventId, userId, inviteeEmail, startTime, endTime, status) VALUES (?, ?, ?, ?, ?, ?, ?)'
+          );
+          const result = stmt.run(id, eventId, user.id, inviteeEmail, startTime, endTime, status);
+          
+          console.log('Insert appointment result:', result);
+          
+          // Commit the transaction
+          db.exec('COMMIT');
+          console.log('Appointment created and committed to database');
+          
+          // Verify appointment was actually created in database
+          const verifyStmt = db.prepare('SELECT * FROM appointments WHERE id = ?');
+          const saved = verifyStmt.get(id);
+          console.log('Appointment verified in database:', saved ? 'Success' : 'Failed');
+          
+          if (!saved) {
+            return { message: 'Failed to save appointment to database', code: 'DATABASE_ERROR' };
+          }
+            // Need to explicitly include all required fields from the Appointment type
+          // This will ensure it's properly resolved as an Appointment in the AppointmentResult union
+          console.log('Returning appointment data:', { id, eventId, userId: user.id, inviteeEmail, startTime, endTime, status });
+          
+          // Get the inserted record directly from the database to return
+          const getStmt = db.prepare('SELECT * FROM appointments WHERE id = ?');
+          const insertedAppointment = getStmt.get(id);
+          console.log('Fetched appointment from DB:', insertedAppointment);
+          
+          return insertedAppointment;
+        } catch (txError) {
+          // Rollback on error
+          console.error('Transaction error:', txError);
+          db.exec('ROLLBACK');
+          throw txError;
+        }
       } catch (error) {
         console.error('Database error:', error);
-        throw new Error('Database error');
+        return { message: error.message, code: 'DATABASE_ERROR' };
       }
     },
     
@@ -122,7 +171,10 @@ export const appointmentResolvers = {
       const { eventId, inviteeEmail, startTime, endTime, status } = input;
       
       // Check appointment ownership
-      await checkAppointmentOwnership(appointmentId, context);
+      const authCheck = await checkAppointmentOwnership(appointmentId, context);
+      if (!authCheck.authorized) {
+        return { message: authCheck.error, code: 'UNAUTHORIZED' };
+      }
       
       if (!eventId && !inviteeEmail && !startTime && !endTime && !status) {
         return { message: 'At least one field is required', code: 'BAD_INPUT' };
@@ -174,27 +226,26 @@ export const appointmentResolvers = {
         return updatedAppointment;
       } catch (error) {
         console.error('Database error:', error);
-        throw new Error('Database error');
+        return { message: error.message, code: 'DATABASE_ERROR' };
       }
     },
     
     // Delete an appointment
     deleteAppointment: async (_, { appointmentId }, context) => {
       // Check appointment ownership
-      await checkAppointmentOwnership(appointmentId, context);
+      const authCheck = await checkAppointmentOwnership(appointmentId, context);
+      if (!authCheck.authorized) {
+        return false;
+      }
       
       try {
         const stmt = db.prepare('DELETE FROM appointments WHERE id = ?');
         const result = stmt.run(appointmentId);
         
-        if (result.changes === 0) {
-          throw new Error('Appointment not found');
-        }
-        
-        return true;
+        return result.changes > 0;
       } catch (error) {
         console.error('Database error:', error);
-        throw new Error('Database error');
+        return false;
       }
     }
   }

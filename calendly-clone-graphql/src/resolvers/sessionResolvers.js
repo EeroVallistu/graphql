@@ -37,21 +37,17 @@ export const sessionResolvers = {
     // Logout - Invalidate token
     logout: (_, __, context) => {
       if (!context.user || !context.user.token) {
-        throw new Error('No active session');
+        return false;
       }
       
       try {
         const stmt = db.prepare('UPDATE users SET token = NULL WHERE token = ?');
         const result = stmt.run(context.user.token);
         
-        if (result.changes === 0) {
-          throw new Error('Session not found');
-        }
-        
-        return true;
+        return result.changes > 0;
       } catch (error) {
         console.error('Database error:', error);
-        throw new Error('Database error');
+        return false;
       }
     }
   }

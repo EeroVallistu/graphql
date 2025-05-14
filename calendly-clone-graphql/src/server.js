@@ -23,14 +23,22 @@ const typeDefs = readFileSync(
 );
 
 // Create database connection (reusing the same database as REST API)
-export const db = new Database('../calendly-clone-api/database.db');
+// Use absolute path to ensure correct database connection regardless of working directory
+import { join } from 'path';
+const dbPath = resolve(__dirname, '../../calendly-clone-api/database.db');
+console.log('Database path:', dbPath);
+
+export const db = new Database(dbPath, { 
+  create: false,  // Don't create if it doesn't exist
+  readwrite: true // Open in read-write mode
+});
 
 // Create Express app
 const app = express();
 
-// Configure CORS
+// Configure CORS - allow all origins for testing
 app.use(cors({
-  origin: 'https://sanderprii.me',
+  origin: '*',
   methods: ['POST', 'GET', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
@@ -50,6 +58,7 @@ const server = new ApolloServer({
       path: error.path,
     };
   },
+  introspection: true,
 });
 
 // Start Apollo Server

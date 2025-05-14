@@ -94,14 +94,39 @@ export const userResolvers = {
         // Generate a unique ID
         const id = crypto.randomUUID();
         
-        // Insert the user
-        const insertStmt = db.prepare('INSERT INTO users (id, name, email, password, timezone) VALUES (?, ?, ?, ?, ?)');
-        insertStmt.run(id, name, email, password, timezone || null);
+        console.log('Creating new user:', { id, name, email });
         
-        return { id, name, email, timezone };
+        // Start transaction to ensure data is committed
+        db.exec('BEGIN TRANSACTION');
+        
+        try {
+          // Insert the user
+          const insertStmt = db.prepare('INSERT INTO users (id, name, email, password, timezone) VALUES (?, ?, ?, ?, ?)');
+          const result = insertStmt.run(id, name, email, password, timezone || null);
+          
+          console.log('Insert result:', result);
+            // Commit the transaction
+          db.exec('COMMIT');
+          console.log('User created and committed to database');
+          
+          // Verify user was actually created in database
+          const wasInserted = DatabaseVerifier.verifyUser(email);
+          console.log('User verified in database:', wasInserted);
+          
+          // Print database path for debugging
+          DatabaseVerifier.getDatabasePath();
+          DatabaseVerifier.countRows('users');
+          
+          return { id, name, email, timezone };
+        } catch (txError) {
+          // Rollback on error
+          console.error('Transaction error:', txError);
+          db.exec('ROLLBACK');
+          throw txError;
+        }
       } catch (error) {
         console.error('Database error:', error);
-        throw new Error('Database error');
+        return { message: error.message, code: 'DATABASE_ERROR' };
       }
     },
     
