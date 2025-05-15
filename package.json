@@ -2,7 +2,8 @@
   "name": "graphql",
   "private": true,
   "scripts": {
-    "start": "concurrently \"node calendly-clone-api/server.js\" \"node calendly-clone-graphql/src/server.js\""
+    "start": "concurrently \"node calendly-clone-api/server.js\" \"node calendly-clone-graphql/src/server.js\"",
+    "test": "node tests/test.js"
   },
   "devDependencies": {
     "@types/bun": "^1.2.13"
