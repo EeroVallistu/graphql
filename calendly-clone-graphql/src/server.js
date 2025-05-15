@@ -7,7 +7,7 @@ import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { createServer } from 'http';
-import { Database } from 'bun:sqlite';
+import sqlite3 from 'sqlite3';
 
 // Import resolvers
 import { resolvers } from './resolvers/index.js';
@@ -26,12 +26,43 @@ const typeDefs = readFileSync(
 // Use absolute path to ensure correct database connection regardless of working directory
 import { join } from 'path';
 const dbPath = resolve(__dirname, '../../calendly-clone-api/database.db');
-console.log('Database path:', dbPath);
+console.log('GraphQL Database path:', dbPath);
 
-export const db = new Database(dbPath, { 
-  create: false,  // Don't create if it doesn't exist
-  readwrite: true // Open in read-write mode
-});
+// Create a wrapper for sqlite3 to match similar functionality as the bun:sqlite API
+const sqlite = sqlite3.verbose();
+export const db = {
+  _db: new sqlite.Database(dbPath),
+  
+  // Prepare and execute a query with parameters
+  query(sql, params = []) {
+    return new Promise((resolve, reject) => {
+      this._db.all(sql, params, (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+  },
+  
+  // Execute a single query and get the first result
+  get(sql, params = []) {
+    return new Promise((resolve, reject) => {
+      this._db.get(sql, params, (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+  },
+  
+  // Execute a query without returning results
+  run(sql, params = []) {
+    return new Promise((resolve, reject) => {
+      this._db.run(sql, params, function(err) {
+        if (err) reject(err);
+        else resolve({ lastInsertRowid: this.lastID, changes: this.changes });
+      });
+    });
+  }
+};
 
 // Create Express app
 const app = express();

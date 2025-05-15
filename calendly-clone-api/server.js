@@ -1,6 +1,5 @@
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
-const db = new sqlite3.Database('./database.db');
+const db = require('./db'); // Use the centralized database connection
 const { auth } = require('./middleware/auth');
 const path = require('path');
 const cors = require('cors');

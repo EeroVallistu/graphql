@@ -1,0 +1,26 @@
+{
+  "name": "graphql",
+  "private": true,
+  "scripts": {
+    "start": "concurrently \"node calendly-clone-api/server.js\" \"node calendly-clone-graphql/src/server.js\""
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.13"
+  },
+  "peerDependencies": {
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@apollo/server": "^4.12.1",
+    "concurrently": "^9.1.2",
+    "connect-sqlite3": "^0.9.15",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "graphql": "^16.11.0",
+    "nodemon": "^3.1.10",
+    "sqlite3": "^5.1.7",
+    "swagger-ui-express": "^5.0.1",
+    "yamljs": "^0.3.0"
+  }
+}
