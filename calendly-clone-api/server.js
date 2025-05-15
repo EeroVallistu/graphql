@@ -28,10 +28,8 @@ const appointmentRoutes = require('./routes/appointments');
 const sessionsRoutes = require('./routes/sessions');
 const docsRouter = require('./routes/docs');
 
-// Mount documentation routes at specific paths
+// Mount documentation route at /en path only
 app.use('/en', docsRouter);
-app.use('/et', docsRouter);
-app.use('/docs', docsRouter);
 
 // Root path redirects to documentation based on browser language
 app.get('/', (req, res) => {
@@ -50,7 +48,7 @@ app.use('/appointments', auth, appointmentRoutes);
 app.use('/sessions', sessionsRoutes);
 
 // Serve static OpenAPI specs from docs directory (for raw YAML access)
-app.use('/docs/specs', express.static(path.join(__dirname, 'docs')));
+app.use('/en/specs', express.static(path.join(__dirname, 'docs')));
 
 // Database initialization
 db.serialize(() => {
@@ -104,13 +102,11 @@ app.use((req, res, next) => {
   next();
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`API docs available at:`);
   console.log(`  - http://localhost:${PORT}/en (English)`);
-  console.log(`  - http://localhost:${PORT}/et (Estonian)`);
-  console.log(`  - http://localhost:${PORT}/docs (Documentation root)`);
 });
 
 module.exports = app;
