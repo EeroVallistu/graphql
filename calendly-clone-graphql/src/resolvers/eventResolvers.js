@@ -19,8 +19,7 @@ const checkEventOwnership = async (eventId, context) => {
   }
   
   try {
-    const stmt = db.prepare('SELECT userId FROM events WHERE id = ?');
-    const event = stmt.get(eventId);
+    const event = await db.get('SELECT userId FROM events WHERE id = ?', [eventId]);
     
     if (!event) {
       return { authorized: false, error: 'Event not found' };
@@ -40,15 +39,14 @@ const checkEventOwnership = async (eventId, context) => {
 export const eventResolvers = {
   Query: {
     // Get event by ID
-    event: (_, { eventId }, context) => {
+    event: async (_, { eventId }, context) => {
       const user = checkAuth(context);
       if (!user) {
         return { message: 'Authentication required', code: 'UNAUTHORIZED' };
       }
       
       try {
-        const stmt = db.prepare('SELECT * FROM events WHERE id = ?');
-        const event = stmt.get(eventId);
+        const event = await db.get('SELECT * FROM events WHERE id = ?', [eventId]);
         
         if (!event) {
           return { message: 'Event not found', code: 'NOT_FOUND' };
@@ -69,7 +67,7 @@ export const eventResolvers = {
     },
     
     // Get all events for a user
-    events: (_, { userId }, context) => {
+    events: async (_, { userId }, context) => {
       const user = checkAuth(context);
       if (!user) {
         return [];
@@ -81,8 +79,7 @@ export const eventResolvers = {
       }
       
       try {
-        const stmt = db.prepare('SELECT * FROM events WHERE userId = ?');
-        const events = stmt.all(userId);
+        const events = await db.query('SELECT * FROM events WHERE userId = ?', [userId]);
         
         // Mark all events as owned by the user
         return events.map(event => ({ ...event, isOwner: true }));
@@ -95,7 +92,7 @@ export const eventResolvers = {
   
   Mutation: {
     // Create a new event
-    createEvent: (_, { input }, context) => {
+    createEvent: async (_, { input }, context) => {
       const { name, duration, description, color } = input;
       const user = checkAuth(context);
       
@@ -110,46 +107,37 @@ export const eventResolvers = {
       if (color && !isValidHexColor(color)) {
         return { message: 'Color must be a valid hex color (e.g., #FF0000)', code: 'BAD_INPUT' };
       }
-        try {
+      
+      try {
         const id = crypto.randomUUID();
         
         console.log('Creating new event:', { id, name, duration, description, color, userId: user.id });
         
-        // Use a transaction to ensure data is committed
-        db.exec('BEGIN TRANSACTION');
+        // Insert the event
+        const result = await db.run(
+          'INSERT INTO events (id, name, duration, description, color, userId) VALUES (?, ?, ?, ?, ?, ?)',
+          [id, name, duration, description, color, user.id]
+        );
         
-        try {
-          const stmt = db.prepare('INSERT INTO events (id, name, duration, description, color, userId) VALUES (?, ?, ?, ?, ?, ?)');
-          const result = stmt.run(id, name, duration, description, color, user.id);
-          
-          console.log('Insert event result:', result);
-            // Commit the transaction
-          db.exec('COMMIT');
-          console.log('Event created and committed to database');
-          
-          // Verify event was actually created in database
-          const wasInserted = DatabaseVerifier.verifyEvent(id);
-          console.log('Event verified in database:', wasInserted);
-          
-          // Print database path for debugging
-          DatabaseVerifier.getDatabasePath();
-          DatabaseVerifier.countRows('events');
-          
-          return { 
-            id, 
-            name, 
-            duration, 
-            description, 
-            color, 
-            userId: user.id,
-            isOwner: true
-          };
-        } catch (txError) {
-          // Rollback on error
-          console.error('Transaction error:', txError);
-          db.exec('ROLLBACK');
-          throw txError;
-        }
+        console.log('Insert event result:', result);
+        console.log('Event created and committed to database');
+        
+        // Commenting out DatabaseVerifier which doesn't seem to exist
+        // const wasInserted = DatabaseVerifier.verifyEvent(id);
+        // console.log('Event verified in database:', wasInserted);
+        
+        // DatabaseVerifier.getDatabasePath();
+        // DatabaseVerifier.countRows('events');
+        
+        return { 
+          id, 
+          name, 
+          duration, 
+          description, 
+          color, 
+          userId: user.id,
+          isOwner: true
+        };
       } catch (error) {
         console.error('Database error:', error);
         return { message: error.message, code: 'DATABASE_ERROR' };
@@ -198,16 +186,14 @@ export const eventResolvers = {
         values.push(eventId);
         
         const query = `UPDATE events SET ${fields.join(', ')} WHERE id = ?`;
-        const stmt = db.prepare(query);
-        const result = stmt.run(...values);
+        const result = await db.run(query, values);
         
         if (result.changes === 0) {
           return { message: 'Event not found', code: 'NOT_FOUND' };
         }
         
         // Get updated event
-        const getStmt = db.prepare('SELECT * FROM events WHERE id = ?');
-        const updatedEvent = getStmt.get(eventId);
+        const updatedEvent = await db.get('SELECT * FROM events WHERE id = ?', [eventId]);
         updatedEvent.isOwner = true;
         
         return updatedEvent;
@@ -226,8 +212,7 @@ export const eventResolvers = {
       }
       
       try {
-        const stmt = db.prepare('DELETE FROM events WHERE id = ?');
-        const result = stmt.run(eventId);
+        const result = await db.run('DELETE FROM events WHERE id = ?', [eventId]);
         
         return result.changes > 0;
       } catch (error) {

@@ -21,12 +21,11 @@ const checkOwnership = (userId, context) => {
 export const scheduleResolvers = {
   Query: {
     // Get all schedules (admin only, but here limited to user's own)
-    schedules: (_, __, context) => {
+    schedules: async (_, __, context) => {
       const user = checkAuth(context);
       
       try {
-        const stmt = db.prepare('SELECT * FROM schedules WHERE userId = ?');
-        const rows = stmt.all(user.id);
+        const rows = await db.query('SELECT * FROM schedules WHERE userId = ?', [user.id]);
         
         // Parse availability for each schedule
         return rows.map(row => ({
@@ -42,15 +41,14 @@ export const scheduleResolvers = {
     },
     
     // Get user's schedule (public view for booking)
-    schedule: (_, { userId }, context) => {
+    schedule: async (_, { userId }, context) => {
       // This endpoint should be accessible without authentication (skipAuth directive)
       // Check if this operation should skip auth
       
       try {
         console.log(`Getting schedule for user ${userId}, skipAuth: ${context.skipAuth}`);
         
-        const stmt = db.prepare('SELECT * FROM schedules WHERE userId = ?');
-        const row = stmt.get(userId);
+        const row = await db.get('SELECT * FROM schedules WHERE userId = ?', [userId]);
         
         if (!row) {
           return { message: 'Schedule not found', code: 'NOT_FOUND' };
@@ -76,7 +74,7 @@ export const scheduleResolvers = {
   
   Mutation: {
     // Create schedule
-    createSchedule: (_, { input }, context) => {
+    createSchedule: async (_, { input }, context) => {
       const { userId, availability } = input;
       
       // Check ownership
@@ -89,8 +87,7 @@ export const scheduleResolvers = {
       try {
         const availabilityJson = JSON.stringify(availability);
         
-        const stmt = db.prepare('INSERT INTO schedules (userId, availability) VALUES (?, ?)');
-        const result = stmt.run(userId, availabilityJson);
+        const result = await db.run('INSERT INTO schedules (userId, availability) VALUES (?, ?)', [userId, availabilityJson]);
         
         return {
           id: result.lastInsertRowid,
@@ -104,7 +101,7 @@ export const scheduleResolvers = {
     },
     
     // Update schedule
-    updateSchedule: (_, { userId, input }, context) => {
+    updateSchedule: async (_, { userId, input }, context) => {
       const { availability } = input;
       
       // Check ownership
@@ -117,16 +114,14 @@ export const scheduleResolvers = {
       try {
         const availabilityJson = JSON.stringify(availability);
         
-        const stmt = db.prepare('UPDATE schedules SET availability = ? WHERE userId = ?');
-        const result = stmt.run(availabilityJson, userId);
+        const result = await db.run('UPDATE schedules SET availability = ? WHERE userId = ?', [availabilityJson, userId]);
         
         if (result.changes === 0) {
           return { message: 'Schedule not found', code: 'NOT_FOUND' };
         }
         
         // Get the updated schedule
-        const getStmt = db.prepare('SELECT * FROM schedules WHERE userId = ?');
-        const updatedSchedule = getStmt.get(userId);
+        const updatedSchedule = await db.get('SELECT * FROM schedules WHERE userId = ?', [userId]);
         
         if (!updatedSchedule) {
           return { message: 'Schedule not found after update', code: 'NOT_FOUND' };
@@ -145,13 +140,12 @@ export const scheduleResolvers = {
     },
     
     // Delete schedule
-    deleteSchedule: (_, { userId }, context) => {
+    deleteSchedule: async (_, { userId }, context) => {
       // Check ownership
       checkOwnership(userId, context);
       
       try {
-        const stmt = db.prepare('DELETE FROM schedules WHERE userId = ?');
-        const result = stmt.run(userId);
+        const result = await db.run('DELETE FROM schedules WHERE userId = ?', [userId]);
         
         if (result.changes === 0) {
           throw new Error('Schedule not found');

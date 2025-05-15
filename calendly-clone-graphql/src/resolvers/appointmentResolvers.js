@@ -19,8 +19,7 @@ const checkAppointmentOwnership = async (appointmentId, context) => {
   }
   
   try {
-    const stmt = db.prepare('SELECT userId FROM appointments WHERE id = ?');
-    const appointment = stmt.get(appointmentId);
+    const appointment = await db.get('SELECT userId FROM appointments WHERE id = ?', [appointmentId]);
     
     if (!appointment) {
       return { authorized: false, error: 'Appointment not found' };
@@ -47,8 +46,7 @@ export const appointmentResolvers = {
       }
       
       try {
-        const stmt = db.prepare('SELECT * FROM appointments WHERE id = ? AND userId = ?');
-        const appointment = stmt.get(appointmentId, user.id);
+        const appointment = await db.get('SELECT * FROM appointments WHERE id = ? AND userId = ?', [appointmentId, user.id]);
         
         if (!appointment) {
           return { message: 'Appointment not found', code: 'NOT_FOUND' };
@@ -87,8 +85,7 @@ export const appointmentResolvers = {
         query += ' ORDER BY startTime DESC LIMIT ? OFFSET ?';
         params.push(pageSize, offset);
         
-        const stmt = db.prepare(query);
-        const data = stmt.all(...params);
+        const data = await db.query(query, params);
         
         // Get total count for pagination
         let countQuery = 'SELECT COUNT(*) as count FROM appointments WHERE userId = ?';
@@ -99,8 +96,8 @@ export const appointmentResolvers = {
           countParams.push(status);
         }
         
-        const countStmt = db.prepare(countQuery);
-        const { count } = countStmt.get(...countParams);
+        const countResult = await db.get(countQuery, countParams);
+        const count = countResult.count;
         
         return {
           data,
@@ -129,12 +126,11 @@ export const appointmentResolvers = {
       const offset = (page - 1) * pageSize;
       
       try {
-        const stmt = db.prepare('SELECT * FROM appointments ORDER BY startTime DESC LIMIT ? OFFSET ?');
-        const data = stmt.all(pageSize, offset);
+        const data = await db.query('SELECT * FROM appointments ORDER BY startTime DESC LIMIT ? OFFSET ?', [pageSize, offset]);
         
         // Get total count for pagination
-        const countStmt = db.prepare('SELECT COUNT(*) as count FROM appointments');
-        const { count } = countStmt.get();
+        const countResult = await db.get('SELECT COUNT(*) as count FROM appointments');
+        const count = countResult.count;
         
         return {
           data,
@@ -153,7 +149,7 @@ export const appointmentResolvers = {
   
   Mutation: {
     // Create a new appointment
-    createAppointment: (_, { input }, context) => {
+    createAppointment: async (_, { input }, context) => {
       const { eventId, inviteeEmail, startTime, endTime } = input;
       const user = checkAuth(context);
       
@@ -169,10 +165,11 @@ export const appointmentResolvers = {
       
       if (!isValidEmail(inviteeEmail)) {
         return { message: 'Invalid invitee email format', code: 'BAD_INPUT' };
-      }      try {
+      }
+      
+      try {
         // Verify event exists and belongs to user
-        const eventStmt = db.prepare('SELECT id FROM events WHERE id = ? AND userId = ?');
-        const event = eventStmt.get(eventId, user.id);
+        const event = await db.get('SELECT id FROM events WHERE id = ? AND userId = ?', [eventId, user.id]);
         
         if (!event) {
           return { message: 'Event not found or access denied', code: 'NOT_FOUND' };
@@ -181,45 +178,27 @@ export const appointmentResolvers = {
         const id = crypto.randomUUID();
         console.log('Creating new appointment:', { id, eventId, inviteeEmail, startTime, endTime, status });
         
-        // Use a transaction to ensure data is committed
-        db.exec('BEGIN TRANSACTION');
+        // Insert the appointment directly - the db wrapper handles transactions internally
+        const result = await db.run(
+          'INSERT INTO appointments (id, eventId, userId, inviteeEmail, startTime, endTime, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [id, eventId, user.id, inviteeEmail, startTime, endTime, status]
+        );
         
-        try {
-          const stmt = db.prepare(
-            'INSERT INTO appointments (id, eventId, userId, inviteeEmail, startTime, endTime, status) VALUES (?, ?, ?, ?, ?, ?, ?)'
-          );
-          const result = stmt.run(id, eventId, user.id, inviteeEmail, startTime, endTime, status);
-          
-          console.log('Insert appointment result:', result);
-          
-          // Commit the transaction
-          db.exec('COMMIT');
-          console.log('Appointment created and committed to database');
-          
-          // Verify appointment was actually created in database
-          const verifyStmt = db.prepare('SELECT * FROM appointments WHERE id = ?');
-          const saved = verifyStmt.get(id);
-          console.log('Appointment verified in database:', saved ? 'Success' : 'Failed');
-          
-          if (!saved) {
-            return { message: 'Failed to save appointment to database', code: 'DATABASE_ERROR' };
-          }
-            // Need to explicitly include all required fields from the Appointment type
-          // This will ensure it's properly resolved as an Appointment in the AppointmentResult union
-          console.log('Returning appointment data:', { id, eventId, userId: user.id, inviteeEmail, startTime, endTime, status });
-          
-          // Get the inserted record directly from the database to return
-          const getStmt = db.prepare('SELECT * FROM appointments WHERE id = ?');
-          const insertedAppointment = getStmt.get(id);
-          console.log('Fetched appointment from DB:', insertedAppointment);
-          
-          return insertedAppointment;
-        } catch (txError) {
-          // Rollback on error
-          console.error('Transaction error:', txError);
-          db.exec('ROLLBACK');
-          throw txError;
+        console.log('Insert appointment result:', result);
+        
+        // Verify appointment was actually created in database
+        const saved = await db.get('SELECT * FROM appointments WHERE id = ?', [id]);
+        console.log('Appointment verified in database:', saved ? 'Success' : 'Failed');
+        
+        if (!saved) {
+          return { message: 'Failed to save appointment to database', code: 'DATABASE_ERROR' };
         }
+        
+        // Need to explicitly include all required fields from the Appointment type
+        // This will ensure it's properly resolved as an Appointment in the AppointmentResult union
+        console.log('Returning appointment data:', { id, eventId, userId: user.id, inviteeEmail, startTime, endTime, status });
+        
+        return saved;
       } catch (error) {
         console.error('Database error:', error);
         return { message: error.message, code: 'DATABASE_ERROR' };
@@ -272,16 +251,14 @@ export const appointmentResolvers = {
         values.push(appointmentId);
         
         const query = `UPDATE appointments SET ${fields.join(', ')} WHERE id = ?`;
-        const stmt = db.prepare(query);
-        const result = stmt.run(...values);
+        const result = await db.run(query, values);
         
         if (result.changes === 0) {
           return { message: 'Appointment not found', code: 'NOT_FOUND' };
         }
         
         // Get updated appointment
-        const getStmt = db.prepare('SELECT * FROM appointments WHERE id = ?');
-        const updatedAppointment = getStmt.get(appointmentId);
+        const updatedAppointment = await db.get('SELECT * FROM appointments WHERE id = ?', [appointmentId]);
         
         return updatedAppointment;
       } catch (error) {
@@ -299,8 +276,7 @@ export const appointmentResolvers = {
       }
       
       try {
-        const stmt = db.prepare('DELETE FROM appointments WHERE id = ?');
-        const result = stmt.run(appointmentId);
+        const result = await db.run('DELETE FROM appointments WHERE id = ?', [appointmentId]);
         
         return result.changes > 0;
       } catch (error) {

@@ -149,6 +149,7 @@ type Query {
   # User queries
   users(page: Int = 1, pageSize: Int = 20): UserResponse!
   user(userId: ID!): UserResult!
+  me: UserResult!
   
   # Event queries
   event(eventId: ID!): EventResult!

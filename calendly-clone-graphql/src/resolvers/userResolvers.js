@@ -24,15 +24,14 @@ const checkOwnership = (userId, context) => {
 export const userResolvers = {
   Query: {
     // Get all users with pagination
-    users: (_, { page = 1, pageSize = 20 }, context) => {
+    users: async (_, { page = 1, pageSize = 20 }, context) => {
       // Auth check
       checkAuth(context);
       
       const offset = (page - 1) * pageSize;
       
       try {
-        const stmt = db.prepare('SELECT * FROM users LIMIT ? OFFSET ?');
-        const data = stmt.all(pageSize, offset);
+        const data = await db.query('SELECT * FROM users LIMIT ? OFFSET ?', [pageSize, offset]);
         
         return {
           data,
@@ -49,13 +48,12 @@ export const userResolvers = {
     },
     
     // Get single user by ID
-    user: (_, { userId }, context) => {
+    user: async (_, { userId }, context) => {
       // Auth check
       checkAuth(context);
       
       try {
-        const stmt = db.prepare('SELECT * FROM users WHERE id = ?');
-        const user = stmt.get(userId);
+        const user = await db.get('SELECT * FROM users WHERE id = ?', [userId]);
         
         if (!user) {
           return { message: 'User not found', code: 'NOT_FOUND' };
@@ -67,11 +65,20 @@ export const userResolvers = {
         throw new Error('Database error');
       }
     },
+    
+    // Get current authenticated user
+    me: async (_, __, context) => {
+      // Auth check - will throw if not authenticated
+      const user = checkAuth(context);
+      
+      // Return the user from context directly
+      return user;
+    },
   },
   
   Mutation: {
     // Create a new user
-    createUser: (_, { input }) => {
+    createUser: async (_, { input }) => {
       const { name, email, password, timezone } = input;
       
       if (!name || !email || !password) {
@@ -84,8 +91,7 @@ export const userResolvers = {
       
       try {
         // Check if email already exists
-        const checkStmt = db.prepare('SELECT id FROM users WHERE email = ?');
-        const existingUser = checkStmt.get(email);
+        const existingUser = await db.get('SELECT id FROM users WHERE email = ?', [email]);
         
         if (existingUser) {
           return { message: 'Email already in use', code: 'DUPLICATE' };
@@ -96,32 +102,24 @@ export const userResolvers = {
         
         console.log('Creating new user:', { id, name, email });
         
-        // Start transaction to ensure data is committed
-        db.exec('BEGIN TRANSACTION');
-        
         try {
           // Insert the user
-          const insertStmt = db.prepare('INSERT INTO users (id, name, email, password, timezone) VALUES (?, ?, ?, ?, ?)');
-          const result = insertStmt.run(id, name, email, password, timezone || null);
+          const result = await db.run(
+            'INSERT INTO users (id, name, email, password, timezone) VALUES (?, ?, ?, ?, ?)', 
+            [id, name, email, password, timezone || null]
+          );
           
           console.log('Insert result:', result);
-            // Commit the transaction
-          db.exec('COMMIT');
           console.log('User created and committed to database');
           
           // Verify user was actually created in database
-          const wasInserted = DatabaseVerifier.verifyUser(email);
-          console.log('User verified in database:', wasInserted);
-          
-          // Print database path for debugging
-          DatabaseVerifier.getDatabasePath();
-          DatabaseVerifier.countRows('users');
+          const verifiedUser = await db.get('SELECT * FROM users WHERE email = ?', [email]);
+          console.log('User verified in database:', verifiedUser ? true : false);
           
           return { id, name, email, timezone };
         } catch (txError) {
-          // Rollback on error
+          // Error handling
           console.error('Transaction error:', txError);
-          db.exec('ROLLBACK');
           throw txError;
         }
       } catch (error) {
@@ -131,7 +129,7 @@ export const userResolvers = {
     },
     
     // Update an existing user
-    updateUser: (_, { userId, input }, context) => {
+    updateUser: async (_, { userId, input }, context) => {
       const { name, email, password, timezone } = input;
       
       // Check ownership
@@ -169,16 +167,14 @@ export const userResolvers = {
         values.push(userId);
         
         const query = `UPDATE users SET ${fields.join(', ')} WHERE id = ?`;
-        const stmt = db.prepare(query);
-        const result = stmt.run(...values);
+        const result = await db.run(query, values);
         
         if (result.changes === 0) {
           return { message: 'User not found', code: 'NOT_FOUND' };
         }
         
         // Get updated user
-        const getStmt = db.prepare('SELECT * FROM users WHERE id = ?');
-        const updatedUser = getStmt.get(userId);
+        const updatedUser = await db.get('SELECT * FROM users WHERE id = ?', [userId]);
         
         return updatedUser;
       } catch (error) {
@@ -188,13 +184,12 @@ export const userResolvers = {
     },
     
     // Delete a user
-    deleteUser: (_, { userId }, context) => {
+    deleteUser: async (_, { userId }, context) => {
       // Check ownership
       checkOwnership(userId, context);
       
       try {
-        const stmt = db.prepare('DELETE FROM users WHERE id = ?');
-        const result = stmt.run(userId);
+        const result = await db.run('DELETE FROM users WHERE id = ?', [userId]);
         
         if (result.changes === 0) {
           throw new Error('User not found');

@@ -76,8 +76,7 @@ export const authMiddleware = async (req, res, next) => {
     }
     
     // Verify the token
-    const stmt = db.prepare('SELECT * FROM users WHERE token = ?');
-    const user = stmt.get(token);
+    const user = await db.get('SELECT * FROM users WHERE token = ?', [token]);
     
     if (user) {
       // Attach the user to the request object

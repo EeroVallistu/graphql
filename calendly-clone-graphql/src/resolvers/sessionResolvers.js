@@ -5,7 +5,7 @@ import crypto from 'crypto';
 export const sessionResolvers = {
   Mutation: {
     // Login - Generate Bearer token
-    login: (_, { input }) => {
+    login: async (_, { input }) => {
       const { email, password } = input;
       
       if (!email || !password) {
@@ -13,8 +13,7 @@ export const sessionResolvers = {
       }
       
       try {
-        const stmt = db.prepare('SELECT * FROM users WHERE email = ?');
-        const user = stmt.get(email);
+        const user = await db.get('SELECT * FROM users WHERE email = ?', [email]);
         
         if (!user || user.password !== password) {
           throw new Error('Invalid credentials');
@@ -24,8 +23,7 @@ export const sessionResolvers = {
         const token = crypto.randomBytes(32).toString('hex');
         
         // Save the token in the database
-        const updateStmt = db.prepare('UPDATE users SET token = ? WHERE id = ?');
-        updateStmt.run(token, user.id);
+        await db.run('UPDATE users SET token = ? WHERE id = ?', [token, user.id]);
         
         return { token };
       } catch (error) {
@@ -35,14 +33,13 @@ export const sessionResolvers = {
     },
     
     // Logout - Invalidate token
-    logout: (_, __, context) => {
+    logout: async (_, __, context) => {
       if (!context.user || !context.user.token) {
         return false;
       }
       
       try {
-        const stmt = db.prepare('UPDATE users SET token = NULL WHERE token = ?');
-        const result = stmt.run(context.user.token);
+        const result = await db.run('UPDATE users SET token = NULL WHERE token = ?', [context.user.token]);
         
         return result.changes > 0;
       } catch (error) {
