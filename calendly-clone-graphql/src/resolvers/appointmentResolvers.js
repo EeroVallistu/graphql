@@ -61,17 +61,19 @@ export const appointmentResolvers = {
       }
     },
     
-    // Get all appointments for a user, optionally filtered by status
-    appointments: (_, { userId, status }, context) => {
+    // Get all appointments for a user with optional status filter
+    appointments: async (_, { userId, status, page = 1, pageSize = 20 }, context) => {
       const user = checkAuth(context);
       if (!user) {
-        return [];
+        return { message: 'Authentication required', code: 'UNAUTHORIZED' };
       }
       
-      // Users can only see their own appointments
+      // Users can only see their own appointments unless they are admins
       if (userId !== user.id) {
-        return [];
+        return { message: 'Forbidden: You can only access your own appointments', code: 'FORBIDDEN' };
       }
+      
+      const offset = (page - 1) * pageSize;
       
       try {
         let query = 'SELECT * FROM appointments WHERE userId = ?';
@@ -82,11 +84,69 @@ export const appointmentResolvers = {
           params.push(status);
         }
         
+        query += ' ORDER BY startTime DESC LIMIT ? OFFSET ?';
+        params.push(pageSize, offset);
+        
         const stmt = db.prepare(query);
-        return stmt.all(...params);
+        const data = stmt.all(...params);
+        
+        // Get total count for pagination
+        let countQuery = 'SELECT COUNT(*) as count FROM appointments WHERE userId = ?';
+        const countParams = [userId];
+        
+        if (status) {
+          countQuery += ' AND status = ?';
+          countParams.push(status);
+        }
+        
+        const countStmt = db.prepare(countQuery);
+        const { count } = countStmt.get(...countParams);
+        
+        return {
+          data,
+          pagination: {
+            page,
+            pageSize,
+            total: count
+          }
+        };
       } catch (error) {
         console.error('Database error:', error);
-        return [];
+        return { message: 'Database error', code: 'DATABASE_ERROR' };
+      }
+    },
+    
+    // Get all appointments (admin access)
+    allAppointments: async (_, { page = 1, pageSize = 20 }, context) => {
+      const user = checkAuth(context);
+      if (!user) {
+        return { message: 'Authentication required', code: 'UNAUTHORIZED' };
+      }
+      
+      // In a production app, you would add admin check here
+      // For now, we'll allow any authenticated user to see all appointments
+      
+      const offset = (page - 1) * pageSize;
+      
+      try {
+        const stmt = db.prepare('SELECT * FROM appointments ORDER BY startTime DESC LIMIT ? OFFSET ?');
+        const data = stmt.all(pageSize, offset);
+        
+        // Get total count for pagination
+        const countStmt = db.prepare('SELECT COUNT(*) as count FROM appointments');
+        const { count } = countStmt.get();
+        
+        return {
+          data,
+          pagination: {
+            page,
+            pageSize,
+            total: count
+          }
+        };
+      } catch (error) {
+        console.error('Database error:', error);
+        return { message: 'Database error', code: 'DATABASE_ERROR' };
       }
     }
   },

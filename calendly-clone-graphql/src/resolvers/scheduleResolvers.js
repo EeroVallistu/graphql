@@ -42,8 +42,13 @@ export const scheduleResolvers = {
     },
     
     // Get user's schedule (public view for booking)
-    schedule: (_, { userId }) => {
+    schedule: (_, { userId }, context) => {
+      // This endpoint should be accessible without authentication (skipAuth directive)
+      // Check if this operation should skip auth
+      
       try {
+        console.log(`Getting schedule for user ${userId}, skipAuth: ${context.skipAuth}`);
+        
         const stmt = db.prepare('SELECT * FROM schedules WHERE userId = ?');
         const row = stmt.get(userId);
         
@@ -64,7 +69,7 @@ export const scheduleResolvers = {
         }
       } catch (error) {
         console.error('Database error:', error);
-        throw new Error('Database error');
+        return { message: 'Database error', code: 'DATABASE_ERROR' };
       }
     }
   },

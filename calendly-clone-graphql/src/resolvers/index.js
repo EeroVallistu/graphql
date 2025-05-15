@@ -5,6 +5,7 @@ import { eventResolvers } from './eventResolvers.js';
 import { scheduleResolvers } from './scheduleResolvers.js';
 import { appointmentResolvers } from './appointmentResolvers.js';
 import { sessionResolvers } from './sessionResolvers.js';
+import { availabilityResolvers } from './availabilityResolvers.js';
 
 // Combine all resolvers
 export const resolvers = {
@@ -16,6 +17,7 @@ export const resolvers = {
     ...eventResolvers.Query,
     ...scheduleResolvers.Query,
     ...appointmentResolvers.Query,
+    ...availabilityResolvers.Query,
   },
   
   Mutation: {

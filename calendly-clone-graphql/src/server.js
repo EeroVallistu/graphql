@@ -8,10 +8,12 @@ import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { createServer } from 'http';
 import sqlite3 from 'sqlite3';
+import { makeExecutableSchema } from '@graphql-tools/schema';
 
 // Import resolvers
 import { resolvers } from './resolvers/index.js';
 import { authMiddleware } from './middleware/auth.js';
+import { skipAuthDirectiveTransformer } from './utils/directives.js';
 
 // Get current directory
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -21,6 +23,11 @@ const typeDefs = readFileSync(
   resolve(__dirname, '../schema/schema.graphql'),
   'utf-8'
 );
+
+// Define directives
+const directiveTypeDefs = `
+  directive @skipAuth on FIELD_DEFINITION
+`;
 
 // Create database connection (reusing the same database as REST API)
 // Use absolute path to ensure correct database connection regardless of working directory
@@ -75,10 +82,18 @@ app.use(cors({
   credentials: true
 }));
 
+// Make executable schema with directives
+let schema = makeExecutableSchema({
+  typeDefs: [directiveTypeDefs, typeDefs],
+  resolvers,
+});
+
+// Apply schema transformations
+schema = skipAuthDirectiveTransformer(schema);
+
 // Setup Apollo Server
 const server = new ApolloServer({
-  typeDefs,
-  resolvers,
+  schema,
   formatError: (error) => {
     console.error('GraphQL Error:', error);
     
@@ -102,7 +117,10 @@ app.use('/graphql',
   expressMiddleware(server, {
     context: async ({ req }) => {
       // Pass user from auth middleware to resolvers
-      return { user: req.user };
+      return { 
+        user: req.user,
+        skipAuth: req.skipAuth || false // Flag to bypass auth for public operations
+      };
     },
   })
 );

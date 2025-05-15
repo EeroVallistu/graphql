@@ -31,6 +31,12 @@ type Appointment {
   status: String!
 }
 
+type AvailableTimeSlot {
+  start: DateTime!
+  end: DateTime!
+  available: Boolean!
+}
+
 type Schedule {
   id: ID
   userId: ID!
@@ -54,6 +60,16 @@ type PaginationInfo {
 
 type UserResponse {
   data: [User!]!
+  pagination: PaginationInfo
+}
+
+type AppointmentResponse {
+  data: [Appointment!]!
+  pagination: PaginationInfo
+}
+
+type EventResponse {
+  data: [Event!]!
   pagination: PaginationInfo
 }
 
@@ -84,6 +100,11 @@ input UpdateEventInput {
   duration: Int
   description: String
   color: String
+}
+
+input DateRangeInput {
+  startDate: DateTime!
+  endDate: DateTime!
 }
 
 input CreateAppointmentInput {
@@ -131,15 +152,19 @@ type Query {
   
   # Event queries
   event(eventId: ID!): EventResult!
-  events(userId: ID!): [Event!]!
+  events(userId: ID!, page: Int = 1, pageSize: Int = 20): EventResponse!
   
   # Schedule queries
-  schedule(userId: ID!): ScheduleResult!
+  schedule(userId: ID!): ScheduleResult! @skipAuth
   schedules: [Schedule!]!
   
   # Appointment queries
   appointment(appointmentId: ID!): AppointmentResult!
-  appointments(userId: ID!, status: String): [Appointment!]!
+  appointments(userId: ID!, status: String, page: Int = 1, pageSize: Int = 20): AppointmentResponse!
+  allAppointments(page: Int = 1, pageSize: Int = 20): AppointmentResponse!
+  
+  # Availability queries
+  availableSlots(userId: ID!, dateRange: DateRangeInput!): [AvailableTimeSlot!]! @skipAuth
 }
 
 type Mutation {

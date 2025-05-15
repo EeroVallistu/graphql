@@ -3,7 +3,9 @@
   "private": true,
   "scripts": {
     "start": "concurrently \"node calendly-clone-api/server.js\" \"node calendly-clone-graphql/src/server.js\"",
-    "test": "node tests/test.js"
+    "test": "node tests/test.js",
+    "test:compare:js": "node tests/test-compare.js",
+    "test:compare:sh": "bash tests/test.sh"
   },
   "devDependencies": {
     "@types/bun": "^1.2.13"
@@ -13,6 +15,8 @@
   },
   "dependencies": {
     "@apollo/server": "^4.12.1",
+    "@graphql-tools/schema": "^10.0.23",
+    "@graphql-tools/utils": "^10.8.6",
     "concurrently": "^9.1.2",
     "connect-sqlite3": "^0.9.15",
     "cors": "^2.8.5",
