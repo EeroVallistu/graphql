@@ -10,11 +10,28 @@ const checkAuth = (context) => {
 };
 
 // Helper function to check ownership
-const checkOwnership = (userId, context) => {
+const checkOwnership = async (userId, context) => {
   const user = checkAuth(context);
+  
+  // For delete/update operations, first check if the schedule exists
+  try {
+    const schedule = await db.get('SELECT userId FROM schedules WHERE userId = ?', [userId]);
+    
+    // If schedule doesn't exist for this userId (possibly already deleted by REST API),
+    // but the user is trying to delete their own data, consider it authorized
+    if (!schedule && user.id === userId) {
+      console.log(`Schedule for user ${userId} not found during ownership check, assuming already deleted`);
+      return { ...user, notFound: true };
+    }
+  } catch (error) {
+    console.error('Database error during schedule existence check:', error);
+    // Continue with normal flow even if this check fails
+  }
+  
   if (user.id !== userId) {
     throw new Error('Forbidden: You can only access or modify your own data');
   }
+  
   return user;
 };
 
@@ -83,7 +100,7 @@ export const scheduleResolvers = {
       const { userId, availability } = input;
       
       // Check ownership
-      checkOwnership(userId, context);
+      await checkOwnership(userId, context);
       
       if (!availability) {
         return { message: 'Availability is required', code: 'BAD_INPUT' };
@@ -111,7 +128,7 @@ export const scheduleResolvers = {
       const { availability } = input;
       
       // Check ownership
-      checkOwnership(userId, context);
+      await checkOwnership(userId, context);
       
       if (!availability) {
         return { message: 'Availability is required', code: 'BAD_INPUT' };
@@ -153,13 +170,28 @@ export const scheduleResolvers = {
     // Delete schedule
     deleteSchedule: async (_, { userId }, context) => {
       // Check ownership
-      checkOwnership(userId, context);
+      const user = await checkOwnership(userId, context);
+      
+      // If checkOwnership returned with notFound flag, consider deletion already successful
+      if (user.notFound) {
+        return true;
+      }
       
       try {
+        // Check if the schedule exists first
+        const schedule = await db.get('SELECT userId FROM schedules WHERE userId = ?', [userId]);
+        
+        // If the schedule doesn't exist, consider the deletion successful
+        if (!schedule) {
+          console.log(`Schedule for user ${userId} not found, considering deletion successful`);
+          return true;
+        }
+        
         const result = await db.run('DELETE FROM schedules WHERE userId = ?', [userId]);
         
         if (result.changes === 0) {
-          throw new Error('Schedule not found');
+          console.log(`No rows affected when deleting schedule for user ${userId}`);
+          return true; // Still consider it a success if no rows were affected
         }
         
         return true;

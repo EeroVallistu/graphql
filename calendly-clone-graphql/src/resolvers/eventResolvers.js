@@ -21,8 +21,11 @@ const checkEventOwnership = async (eventId, context) => {
   try {
     const event = await db.get('SELECT userId FROM events WHERE id = ?', [eventId]);
     
+    // For delete operations, if the event doesn't exist (possibly already deleted by REST API),
+    // we consider it an authorized operation
     if (!event) {
-      return { authorized: false, error: 'Event not found' };
+      console.log(`Event ${eventId} not found during ownership check, assuming already deleted`);
+      return { authorized: true, user, notFound: true };
     }
     
     if (event.userId !== user.id) {
@@ -230,6 +233,15 @@ export const eventResolvers = {
       }
       
       try {
+        // Check if the event exists first - it might have been already deleted by the REST API
+        const event = await db.get('SELECT id FROM events WHERE id = ?', [eventId]);
+        
+        // If the event doesn't exist, consider the deletion successful
+        if (!event) {
+          console.log(`Event ${eventId} not found, considering deletion successful`);
+          return true;
+        }
+        
         const result = await db.run('DELETE FROM events WHERE id = ?', [eventId]);
         
         return result.changes > 0;

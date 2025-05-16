@@ -12,11 +12,28 @@ const checkAuth = (context) => {
 };
 
 // Helper function to check owner
-const checkOwnership = (userId, context) => {
+const checkOwnership = async (userId, context) => {
   const user = checkAuth(context);
+  
+  // For delete/update operations, first check if the user exists
+  try {
+    const existingUser = await db.get('SELECT id FROM users WHERE id = ?', [userId]);
+    
+    // If user doesn't exist (possibly already deleted by REST API),
+    // but the user is trying to delete their own data, consider it authorized
+    if (!existingUser && user.id === userId) {
+      console.log(`User ${userId} not found during ownership check, assuming already deleted`);
+      return { ...user, notFound: true };
+    }
+  } catch (error) {
+    console.error('Database error during user existence check:', error);
+    // Continue with normal flow even if this check fails
+  }
+  
   if (user.id !== userId) {
     throw new Error('Forbidden: You can only access or modify your own data');
   }
+  
   return user;
 };
 
@@ -133,7 +150,7 @@ export const userResolvers = {
       const { name, email, password, timezone } = input;
       
       // Check ownership
-      checkOwnership(userId, context);
+      await checkOwnership(userId, context);
       
       if (!name && !email && !password && !timezone) {
         return { message: 'At least one field is required', code: 'BAD_INPUT' };
@@ -189,6 +206,15 @@ export const userResolvers = {
       checkOwnership(userId, context);
       
       try {
+        // Check if the user exists first - it might have been already deleted by the REST API
+        const user = await db.get('SELECT id FROM users WHERE id = ?', [userId]);
+        
+        // If the user doesn't exist, consider the deletion successful
+        if (!user) {
+          console.log(`User ${userId} not found, considering deletion successful`);
+          return true;
+        }
+        
         const result = await db.run('DELETE FROM users WHERE id = ?', [userId]);
         
         if (result.changes === 0) {

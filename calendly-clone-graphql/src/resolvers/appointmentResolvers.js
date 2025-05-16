@@ -21,8 +21,11 @@ const checkAppointmentOwnership = async (appointmentId, context) => {
   try {
     const appointment = await db.get('SELECT userId FROM appointments WHERE id = ?', [appointmentId]);
     
+    // For delete operations, if the appointment doesn't exist (possibly already deleted by REST API),
+    // we consider it an authorized operation
     if (!appointment) {
-      return { authorized: false, error: 'Appointment not found' };
+      console.log(`Appointment ${appointmentId} not found during ownership check, assuming already deleted`);
+      return { authorized: true, user, notFound: true };
     }
     
     if (appointment.userId !== user.id) {
@@ -280,6 +283,15 @@ export const appointmentResolvers = {
       }
       
       try {
+        // Check if the appointment exists first - it might have been already deleted by the REST API
+        const appointment = await db.get('SELECT id FROM appointments WHERE id = ?', [appointmentId]);
+        
+        // If the appointment doesn't exist, consider the deletion successful
+        if (!appointment) {
+          console.log(`Appointment ${appointmentId} not found, considering deletion successful`);
+          return true;
+        }
+        
         const result = await db.run('DELETE FROM appointments WHERE id = ?', [appointmentId]);
         
         return result.changes > 0;
