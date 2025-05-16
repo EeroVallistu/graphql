@@ -67,25 +67,43 @@ export const eventResolvers = {
     },
     
     // Get all events for a user
-    events: async (_, { userId }, context) => {
+    events: async (_, { userId, page = 1, pageSize = 20 }, context) => {
       const user = checkAuth(context);
       if (!user) {
-        return [];
+        return { 
+          data: [], 
+          pagination: { page, pageSize, total: 0 } 
+        };
       }
       
       // Users can view their own events
       if (userId !== user.id) {
-        return [];
+        return { 
+          data: [], 
+          pagination: { page, pageSize, total: 0 } 
+        };
       }
       
       try {
         const events = await db.query('SELECT * FROM events WHERE userId = ?', [userId]);
         
         // Mark all events as owned by the user
-        return events.map(event => ({ ...event, isOwner: true }));
+        const eventData = events.map(event => ({ ...event, isOwner: true }));
+        
+        return {
+          data: eventData,
+          pagination: {
+            page,
+            pageSize,
+            total: eventData.length
+          }
+        };
       } catch (error) {
         console.error('Database error:', error);
-        return [];
+        return { 
+          data: [], 
+          pagination: { page, pageSize, total: 0 } 
+        };
       }
     }
   },
