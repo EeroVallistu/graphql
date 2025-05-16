@@ -51,7 +51,9 @@ async function restRequest(method, endpoint, data = null, token = '') {
     const response = await fetch(`${REST_API_URL}${endpoint}`, options);
     
     if (!response.ok) {
+      const text = await response.text();
       console.error(`REST API request failed with status: ${response.status} ${response.statusText}`);
+      console.error(`REST API error response body: ${text}`);
       return null;
     }
     
@@ -151,17 +153,43 @@ function compareResponses(restResp, graphqlResp, graphqlPath) {
     return false;
   }
 
-  // Basic structure comparison - for real tests this would be more sophisticated
-  const restKeys = Object.keys(restResp).sort();
-  const graphqlKeys = Object.keys(graphqlData).sort();
+  // Handle special case for endpoints returning paginated results
+  if (restResp.data && restResp.pagination && Array.isArray(graphqlData.data)) {
+    // For endpoints like /users where REST returns {data, pagination} and GraphQL returns {data}
+    console.log(`${colors.yellow}Comparing paginated data${colors.reset}`);
+    
+    // Compare data arrays instead of top-level structure
+    const restData = restResp.data;
+    const graphqlDataItems = graphqlData.data;
+    
+    // Basic structure comparison for the first item in each array
+    if (restData.length > 0 && graphqlDataItems.length > 0) {
+      const restItemKeys = Object.keys(restData[0]).sort();
+      const graphqlItemKeys = Object.keys(graphqlDataItems[0]).sort();
+      
+      // Log the comparison for debugging
+      console.log(`${colors.yellow}REST item keys:${colors.reset} ${JSON.stringify(restItemKeys)}`);
+      console.log(`${colors.yellow}GraphQL item keys:${colors.reset} ${JSON.stringify(graphqlItemKeys)}`);
+      
+      // For paginated data, we'll check if all GraphQL keys are present in REST keys
+      const allKeysPresent = graphqlItemKeys.every(key => restItemKeys.includes(key));
+      if (allKeysPresent) {
+        return true;
+      }
+    }
+  } else {
+    // Standard comparison for non-paginated endpoints
+    const restKeys = Object.keys(restResp).sort();
+    const graphqlKeys = Object.keys(graphqlData).sort();
 
-  // Log the comparison for debugging
-  console.log(`${colors.yellow}REST keys:${colors.reset} ${JSON.stringify(restKeys)}`);
-  console.log(`${colors.yellow}GraphQL keys:${colors.reset} ${JSON.stringify(graphqlKeys)}`);
-  
-  // Very simple comparison - in a real system we would do more in-depth validation
-  if (JSON.stringify(restKeys) === JSON.stringify(graphqlKeys)) {
-    return true;
+    // Log the comparison for debugging
+    console.log(`${colors.yellow}REST keys:${colors.reset} ${JSON.stringify(restKeys)}`);
+    console.log(`${colors.yellow}GraphQL keys:${colors.reset} ${JSON.stringify(graphqlKeys)}`);
+    
+    // Very simple comparison - in a real system we would do more in-depth validation
+    if (JSON.stringify(restKeys) === JSON.stringify(graphqlKeys)) {
+      return true;
+    }
   }
   
   console.log(`${colors.red}Response structures differ${colors.reset}`);
