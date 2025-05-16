@@ -19,7 +19,7 @@ const isPublicOperation = async (req) => {
     
     // Check for specific public operations by name
     if (req.body && req.body.operationName) {
-      const publicOperations = ['GetPublicSchedule', 'GetAvailableSlots'];
+      const publicOperations = ['GetPublicSchedule', 'GetAvailableSlots', 'Login'];
       if (publicOperations.includes(req.body.operationName)) {
         return true;
       }
@@ -28,7 +28,8 @@ const isPublicOperation = async (req) => {
     // Check for specific public queries in the query string
     if (req.body && req.body.query) {
       if (req.body.query.includes('schedule(') || 
-          req.body.query.includes('availableSlots(')) {
+          req.body.query.includes('availableSlots(') ||
+          req.body.query.includes('login(')) {
         return true;
       }
     }

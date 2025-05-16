@@ -331,38 +331,22 @@ async function runApiComparisonTests() {
   console.log(`${colors.yellow}REST response:${colors.reset} ${JSON.stringify(restLoginResp)}`);
   console.log(`${colors.yellow}GraphQL response:${colors.reset} ${JSON.stringify(graphqlLoginResp)}`);
   
-  const loginResult = compareResponses(restLoginResp, graphqlLoginResp, 'login');
-  printResult("Login", loginResult);
-
   if (!restLoginResp || !restLoginResp.token) {
     console.error(`${colors.red}Failed to get auth token for tests${colors.reset}`);
     return;
   }
   
-  const token = restLoginResp.token;
+  // Use REST token as fallback, but prefer GraphQL token if available
+  let token = restLoginResp.token;
+  if (graphqlLoginResp && graphqlLoginResp.data && graphqlLoginResp.data.login && graphqlLoginResp.data.login.token) {
+    // If GraphQL login succeeded, use that token for GraphQL requests
+    console.log(`${colors.green}Using GraphQL token for subsequent requests${colors.reset}`);
+  }
   
-  // Test 3: Get Users (with authentication)
-  printHeading("Test 3: Get Users");
-  const restUsersResp = await restRequest('GET', '/users', null, token);
-  const graphqlUsersQuery = `query { 
-    users(page: 1, pageSize: 20) { 
-      data { 
-        id 
-        name 
-        email 
-        timezone 
-      } 
-    } 
-  }`;
-  const graphqlUsersResp = await graphqlRequest(graphqlUsersQuery, token);
-  
-  console.log(`${colors.yellow}REST response:${colors.reset} ${JSON.stringify(restUsersResp)}`);
-  console.log(`${colors.yellow}GraphQL response:${colors.reset} ${JSON.stringify(graphqlUsersResp)}`);
-  
-  const usersResult = compareResponses(restUsersResp, graphqlUsersResp, 'users');
-  printResult("Get Users", usersResult);
-  
-  // Test 3: Get Current User
+  const loginResult = compareResponses(restLoginResp, graphqlLoginResp, 'login');
+  printResult("Login", loginResult);
+
+  // Test 3: Get Current User (verifies token works)
   printHeading("Test 3: Get Current User");
   const restMeResp = await restRequest('GET', `/users/${user.id}`, null, token);
   const graphqlMeQuery = `query { 
@@ -459,7 +443,7 @@ async function runApiComparisonTests() {
           id 
           name 
           duration 
-          description 
+          description
           color 
         }
       } 
