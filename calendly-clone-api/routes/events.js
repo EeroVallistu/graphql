@@ -117,7 +117,17 @@ router.patch('/:eventId', auth, checkEventOwnership, (req, res) => {
     if (this.changes === 0) {
       return res.status(404).json({ error: 'Event not found' });
     }
-    res.json({ id: eventId, name, duration, description, color, userId: req.user.id });
+    
+    // Retrieve the complete updated event to return all fields
+    db.get('SELECT * FROM events WHERE id = ?', [eventId], (err, event) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error retrieving updated event' });
+      }
+      if (!event) {
+        return res.status(404).json({ error: 'Updated event not found' });
+      }
+      res.json(event);
+    });
   });
 });
 

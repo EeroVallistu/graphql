@@ -870,6 +870,7 @@ async function runApiComparisonTests() {
         ... on Appointment {
           id
           eventId
+          userId
           inviteeEmail
           startTime
           endTime

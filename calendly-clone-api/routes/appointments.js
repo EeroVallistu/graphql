@@ -98,7 +98,29 @@ router.patch('/:appointmentId', auth, checkAppointmentOwnership, (req, res) => {
     if (this.changes === 0) {
       return res.status(404).json({ error: 'Appointment not found' });
     }
-    res.json({ id: appointmentId, eventId, userId: req.user.id, inviteeEmail, startTime, endTime, status });
+    
+    // Retrieve the complete updated appointment to return all fields
+    db.get('SELECT * FROM appointments WHERE id = ?', [appointmentId], (err, appointment) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error retrieving updated appointment' });
+      }
+      if (!appointment) {
+        return res.status(404).json({ error: 'Updated appointment not found' });
+      }
+      
+      // Ensure we convert any null fields to appropriate empty values to match GraphQL
+      const result = {
+        id: appointment.id,
+        eventId: appointment.eventId || '',
+        userId: appointment.userId,
+        inviteeEmail: appointment.inviteeEmail || '',
+        startTime: appointment.startTime || '',
+        endTime: appointment.endTime || '',
+        status: appointment.status || 'scheduled'
+      };
+      
+      res.json(result);
+    });
   });
 });
 

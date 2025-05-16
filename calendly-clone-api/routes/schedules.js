@@ -103,7 +103,24 @@ router.patch('/:userId', auth, checkOwnership, (req, res) => {
       if (this.changes === 0) {
         return res.status(404).json({ error: 'Schedule not found' });
       }
-      res.json({ userId, availability });
+      
+      // Retrieve the complete updated schedule to return all fields
+      db.get('SELECT * FROM schedules WHERE userId = ?', [userId], (err, schedule) => {
+        if (err) {
+          return res.status(500).json({ error: 'Database error retrieving updated schedule' });
+        }
+        if (!schedule) {
+          return res.status(404).json({ error: 'Updated schedule not found' });
+        }
+        try {
+          // Parse availability from JSON string
+          schedule.availability = JSON.parse(schedule.availability);
+          res.json(schedule);
+        } catch (parseError) {
+          console.error('JSON parse error:', parseError);
+          res.status(500).json({ error: 'Failed to parse availability data' });
+        }
+      });
     }
   );
 });
