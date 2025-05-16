@@ -60,7 +60,12 @@ export const scheduleResolvers = {
             ? JSON.parse(row.availability)
             : row.availability;
           
-          return row;
+          // Make sure to explicitly include id in the returned object
+          return {
+            id: row.id,
+            userId: row.userId,
+            availability: row.availability
+          };
         } catch (parseError) {
           console.error('JSON parse error:', parseError);
           return { message: 'Failed to parse availability data', code: 'PARSE_ERROR' };
@@ -89,8 +94,9 @@ export const scheduleResolvers = {
         
         const result = await db.run('INSERT INTO schedules (userId, availability) VALUES (?, ?)', [userId, availabilityJson]);
         
+        // Explicitly include the id in the response
         return {
-          id: result.lastInsertRowid,
+          id: result.lastID,  // Using lastID which is standard in many SQLite libraries
           userId,
           availability
         };
@@ -132,7 +138,12 @@ export const scheduleResolvers = {
           ? JSON.parse(updatedSchedule.availability)
           : updatedSchedule.availability;
         
-        return updatedSchedule;
+        // Explicitly include id in the response
+        return {
+          id: updatedSchedule.id,
+          userId: updatedSchedule.userId,
+          availability: updatedSchedule.availability
+        };
       } catch (error) {
         console.error('Database error:', error);
         throw new Error('Database error');

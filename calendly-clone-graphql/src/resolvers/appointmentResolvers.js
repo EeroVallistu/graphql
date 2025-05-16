@@ -198,7 +198,11 @@ export const appointmentResolvers = {
         // This will ensure it's properly resolved as an Appointment in the AppointmentResult union
         console.log('Returning appointment data:', { id, eventId, userId: user.id, inviteeEmail, startTime, endTime, status });
         
-        return saved;
+        // Make sure userId is included in the response to meet the Appointment type requirements
+        return {
+          ...saved,
+          userId: user.id // Ensure userId is explicitly included
+        };
       } catch (error) {
         console.error('Database error:', error);
         return { message: error.message, code: 'DATABASE_ERROR' };
