@@ -232,6 +232,9 @@ function compareResponses(restResp, graphqlResp, graphqlPath) {
     const isUpdateOperation = graphqlPath && 
       (graphqlPath.includes('update') || graphqlPath.includes('Update'));
     
+    // Find missing keys in REST response
+    const missingKeys = graphqlKeys.filter(key => !restKeys.includes(key));
+    
     // For updates, check if the fields present in both have matching values
     const commonKeys = restKeys.filter(key => graphqlKeys.includes(key));
     const commonValuesMatch = commonKeys.every(key => {
@@ -244,6 +247,11 @@ function compareResponses(restResp, graphqlResp, graphqlPath) {
     } else if (isUpdateOperation && commonKeys.length > 0 && commonValuesMatch) {
       console.log(`${colors.green}Update operation: common fields match between responses${colors.reset}`);
       console.log(`${colors.yellow}Common keys:${colors.reset} ${JSON.stringify(commonKeys)}`);
+      
+      if (missingKeys.length > 0) {
+        console.log(`${colors.yellow}Warning: REST API is missing these fields present in GraphQL:${colors.reset} ${JSON.stringify(missingKeys)}`);
+      }
+      
       return true;
     }
   }
@@ -475,6 +483,7 @@ async function runApiComparisonTests() {
         duration
         description
         color
+        userId
       }
     }
   }`;
@@ -505,6 +514,7 @@ async function runApiComparisonTests() {
         duration 
         description 
         color 
+        userId
       }
     } 
   }`;
@@ -528,6 +538,8 @@ async function runApiComparisonTests() {
           duration 
           description
           color 
+          userId
+          isOwner
         }
       } 
     }`;
@@ -563,6 +575,7 @@ async function runApiComparisonTests() {
           duration
           description
           color
+          userId
         }
       }
     }`;

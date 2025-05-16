@@ -88,7 +88,19 @@ router.patch('/:userId', auth, checkOwnership, (req, res) => {
     if (this.changes === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
-    res.json({ id: userId, name, email, timezone });
+    
+    // After update, fetch the complete user record to return all fields
+    db.get('SELECT * FROM users WHERE id = ?', [userId], (err, user) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error' });
+      }
+      if (!user) {
+        return res.status(404).json({ error: 'User not found after update' });
+      }
+      // Filter out sensitive fields
+      const { password, token, ...userWithoutSensitiveData } = user;
+      res.json(userWithoutSensitiveData);
+    });
   });
 });
 
