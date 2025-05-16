@@ -317,8 +317,8 @@ async function runApiComparisonTests() {
   console.log(`${colors.blue}Starting API comparison tests${colors.reset}`);
   console.log(`${colors.yellow}Tests will compare REST API (${REST_API_URL}) and GraphQL API (${GRAPHQL_URL})${colors.reset}`);
   
-  // Register a test user for authenticated tests
-  printHeading("Creating test user");
+  // Test 1: Create User and Login
+  printHeading("Test 1: Create User and Login");
   const userAuth = await registerTestUser();
   
   if (!userAuth || !userAuth.token) {
@@ -329,8 +329,12 @@ async function runApiComparisonTests() {
   const { user, token } = userAuth;
   console.log(`${colors.green}Created test user: ${user.email} with token: ${token.substring(0, 10)}...${colors.reset}`);
   
-  // Test 1: Get Users (with authentication)
-  printHeading("Test 1: Get Users");
+  // Compare the registration response
+  const registerResult = userAuth !== null;
+  printResult("Create User and Login", registerResult);
+  
+  // Test 2: Get Users (with authentication)
+  printHeading("Test 2: Get Users");
   const restUsersResp = await restRequest('GET', '/users', null, token);
   const graphqlUsersQuery = `query { 
     users(page: 1, pageSize: 20) { 
@@ -350,8 +354,8 @@ async function runApiComparisonTests() {
   const usersResult = compareResponses(restUsersResp, graphqlUsersResp, 'users');
   printResult("Get Users", usersResult);
   
-  // Test 2: Get Current User
-  printHeading("Test 2: Get Current User");
+  // Test 3: Get Current User
+  printHeading("Test 3: Get Current User");
   const restMeResp = await restRequest('GET', `/users/${user.id}`, null, token);
   const graphqlMeQuery = `query { 
     me { 
@@ -371,8 +375,8 @@ async function runApiComparisonTests() {
   const meResult = compareResponses(restMeResp, graphqlMeResp, 'me');
   printResult("Get Current User", meResult);
   
-  // Test 3: Create Event
-  printHeading("Test 3: Create Event");
+  // Test 4: Create Event
+  printHeading("Test 4: Create Event");
   const eventData = {
     name: "Test Event",
     duration: 30,
@@ -415,8 +419,8 @@ async function runApiComparisonTests() {
     console.log(`${colors.red}Failed to create events${colors.reset}`);
   }
   
-  // Test 4: Get Events
-  printHeading("Test 4: Get Events");
+  // Test 5: Get Events
+  printHeading("Test 5: Get Events");
   const restEventsResp = await restRequest('GET', '/events', null, token);
   const graphqlEventsQuery = `query { 
     events(userId: "${user.id}") { 
@@ -439,7 +443,7 @@ async function runApiComparisonTests() {
   
   // Test 5: Get Single Event
   if (restEventId) {
-    printHeading("Test 5: Get Single Event");
+    printHeading("Test 6: Get Single Event");
     const restSingleEventResp = await restRequest('GET', `/events/${restEventId}`, null, token);
     const graphqlSingleEventQuery = `query { 
       event(eventId: "${restEventId}") { 
@@ -465,7 +469,7 @@ async function runApiComparisonTests() {
   
   // Test 6: Update Event
   if (restEventId) {
-    printHeading("Test 6: Update Event");
+    printHeading("Test 7: Update Event");
     const updateEventData = {
       name: "Updated Test Event",
       description: "Updated description"
@@ -496,8 +500,8 @@ async function runApiComparisonTests() {
     printResult("Update Event", updateEventResult);
   }
 
-  // Test 7: Login (Sessions)
-  printHeading("Test 7: Login (Sessions)");
+  // Test 8: Login (Sessions)
+  printHeading("Test 8: Login (Sessions)");
   const loginData = {
     email: user.email,
     password: "test123"
@@ -521,8 +525,8 @@ async function runApiComparisonTests() {
   // Get a user ID for testing
   const userId = user.id;
   
-  // Test 8: Get Single User
-  printHeading("Test 8: Get Single User");
+  // Test 9: Get Single User
+  printHeading("Test 9: Get Single User");
   const restUserResp = await restRequest('GET', `/users/${userId}`, null, token);
   const graphqlUserQuery = `query {
     user(userId: "${userId}") {
@@ -542,8 +546,8 @@ async function runApiComparisonTests() {
   const userResult = compareResponses(restUserResp, graphqlUserResp, 'user');
   printResult("Get Single User", userResult);
   
-  // Test 9: Update User
-  printHeading("Test 9: Update User");
+  // Test 10: Update User
+  printHeading("Test 10: Update User");
   const updateUserData = {
     name: "Updated User Name",
     timezone: "Europe/London"
@@ -570,8 +574,8 @@ async function runApiComparisonTests() {
   const updateUserResult = compareResponses(restUpdateUserResp, graphqlUpdateUserResp, 'updateUser');
   printResult("Update User", updateUserResult);
   
-  // Test 10: Create Schedule
-  printHeading("Test 10: Create Schedule");
+  // Test 11: Create Schedule
+  printHeading("Test 11: Create Schedule");
   const scheduleData = {
     userId: userId,
     availability: {
@@ -606,8 +610,8 @@ async function runApiComparisonTests() {
   const scheduleResult = compareResponses(restScheduleResp, graphqlScheduleResp, 'createSchedule');
   printResult("Create Schedule", scheduleResult);
   
-  // Test 11: Get Schedules
-  printHeading("Test 11: Get Schedules");
+  // Test 12: Get Schedules
+  printHeading("Test 12: Get Schedules");
   const restSchedulesResp = await restRequest('GET', '/schedules', null, token);
   const graphqlSchedulesQuery = `query {
     schedules {
@@ -623,8 +627,8 @@ async function runApiComparisonTests() {
   const schedulesResult = compareResponses(restSchedulesResp, graphqlSchedulesResp, 'schedules');
   printResult("Get Schedules", schedulesResult);
   
-  // Test 12: Get Single Schedule
-  printHeading("Test 12: Get Single Schedule");
+  // Test 13: Get Single Schedule
+  printHeading("Test 13: Get Single Schedule");
   const restSingleScheduleResp = await restRequest('GET', `/schedules/${userId}`, null, token);
   const graphqlSingleScheduleQuery = `query {
     schedule(userId: "${userId}") {
@@ -642,8 +646,8 @@ async function runApiComparisonTests() {
   const singleScheduleResult = compareResponses(restSingleScheduleResp, graphqlSingleScheduleResp, 'schedule');
   printResult("Get Single Schedule", singleScheduleResult);
   
-  // Test 13: Update Schedule
-  printHeading("Test 13: Update Schedule");
+  // Test 14: Update Schedule
+  printHeading("Test 14: Update Schedule");
   const updateScheduleData = {
     availability: {
       monday: [
@@ -676,8 +680,8 @@ async function runApiComparisonTests() {
   const updateScheduleResult = compareResponses(restUpdateScheduleResp, graphqlUpdateScheduleResp, 'updateSchedule');
   printResult("Update Schedule", updateScheduleResult);
   
-  // Test 14: Create Appointment
-  printHeading("Test 14: Create Appointment");
+  // Test 15: Create Appointment
+  printHeading("Test 15: Create Appointment");
   const appointmentData = {
     eventId: restEventId,
     inviteeEmail: "invitee@example.com",
@@ -719,8 +723,8 @@ async function runApiComparisonTests() {
     console.log(`${colors.red}Failed to create appointments${colors.reset}`);
   }
   
-  // Test 15: Get Appointments
-  printHeading("Test 15: Get Appointments");
+  // Test 16: Get Appointments
+  printHeading("Test 16: Get Appointments");
   const restAppointmentsResp = await restRequest('GET', '/appointments', null, token);
   const graphqlAppointmentsQuery = `query {
     appointments {
@@ -742,7 +746,7 @@ async function runApiComparisonTests() {
   
   // Test 16: Get Single Appointment
   if (restAppointmentId) {
-    printHeading("Test 16: Get Single Appointment");
+    printHeading("Test 17: Get Single Appointment");
     const restSingleAppointmentResp = await restRequest('GET', `/appointments/${restAppointmentId}`, null, token);
     const graphqlSingleAppointmentQuery = `query {
       appointment(appointmentId: "${restAppointmentId}") {
@@ -765,7 +769,7 @@ async function runApiComparisonTests() {
   
   // Test 17: Update Appointment
   if (restAppointmentId) {
-    printHeading("Test 17: Update Appointment");
+    printHeading("Test 18: Update Appointment");
     const updateAppointmentData = {
       status: "cancelled"
     };
