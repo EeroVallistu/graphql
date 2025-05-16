@@ -262,7 +262,7 @@ function printResult(testName, success) {
   }
 }
 
-// Register a user and get token
+// Register a new user
 async function registerTestUser() {
   const userData = {
     name: "Test User",
@@ -281,31 +281,10 @@ async function registerTestUser() {
       return null;
     }
     
-    console.log(`${colors.green}User registered successfully. Now logging in...${colors.reset}`);
-    
-    // Now login to get a token
-    const loginResponse = await restRequest('POST', '/sessions', {
-      email: userData.email,
-      password: userData.password
-    });
-    
-    if (loginResponse && loginResponse.token) {
-      console.log(`${colors.green}User logged in successfully${colors.reset}`);
-      
-      // Store the token in the user's record
-      const updateTokenResponse = await restRequest('PATCH', `/users/${registerResponse.id}`, {
-        token: loginResponse.token
-      });
-      console.log(`${colors.green}Updated user record with token${colors.reset}`);
-      
-      return {
-        user: { ...userData, id: registerResponse.id },
-        token: loginResponse.token
-      };
-    } else {
-      console.error(`${colors.red}Failed to login: ${JSON.stringify(loginResponse)}${colors.reset}`);
-      return null;
-    }
+    console.log(`${colors.green}User registered successfully${colors.reset}`);
+    return {
+      user: { ...userData, id: registerResponse.id }
+    };
   } catch (error) {
     console.error(`${colors.red}Error registering user: ${error}${colors.reset}`);
     return null;
@@ -317,24 +296,53 @@ async function runApiComparisonTests() {
   console.log(`${colors.blue}Starting API comparison tests${colors.reset}`);
   console.log(`${colors.yellow}Tests will compare REST API (${REST_API_URL}) and GraphQL API (${GRAPHQL_URL})${colors.reset}`);
   
-  // Test 1: Create User and Login
-  printHeading("Test 1: Create User and Login");
+  // Test 1: Create User
+  printHeading("Test 1: Create User");
   const userAuth = await registerTestUser();
   
-  if (!userAuth || !userAuth.token) {
-    console.error(`${colors.red}Failed to create test user or get token${colors.reset}`);
+  if (!userAuth || !userAuth.user) {
+    console.error(`${colors.red}Failed to create test user${colors.reset}`);
     return;
   }
   
-  const { user, token } = userAuth;
-  console.log(`${colors.green}Created test user: ${user.email} with token: ${token.substring(0, 10)}...${colors.reset}`);
+  const { user } = userAuth;
+  console.log(`${colors.green}Created test user: ${user.email}${colors.reset}`);
   
   // Compare the registration response
   const registerResult = userAuth !== null;
-  printResult("Create User and Login", registerResult);
+  printResult("Create User", registerResult);
+
+  // Test 2: Login (Sessions)
+  printHeading("Test 2: Login (Sessions)");
+  const loginData = {
+    email: user.email,
+    password: "test123"
+  };
   
-  // Test 2: Get Users (with authentication)
-  printHeading("Test 2: Get Users");
+  const restLoginResp = await restRequest('POST', '/sessions', loginData);
+  
+  const graphqlLoginMutation = `mutation {
+    login(input: {email: "${user.email}", password: "test123"}) {
+      token
+    }
+  }`;
+  
+  const graphqlLoginResp = await graphqlRequest(graphqlLoginMutation);
+  console.log(`${colors.yellow}REST response:${colors.reset} ${JSON.stringify(restLoginResp)}`);
+  console.log(`${colors.yellow}GraphQL response:${colors.reset} ${JSON.stringify(graphqlLoginResp)}`);
+  
+  const loginResult = compareResponses(restLoginResp, graphqlLoginResp, 'login');
+  printResult("Login", loginResult);
+
+  if (!restLoginResp || !restLoginResp.token) {
+    console.error(`${colors.red}Failed to get auth token for tests${colors.reset}`);
+    return;
+  }
+  
+  const token = restLoginResp.token;
+  
+  // Test 3: Get Users (with authentication)
+  printHeading("Test 3: Get Users");
   const restUsersResp = await restRequest('GET', '/users', null, token);
   const graphqlUsersQuery = `query { 
     users(page: 1, pageSize: 20) { 
@@ -500,28 +508,6 @@ async function runApiComparisonTests() {
     printResult("Update Event", updateEventResult);
   }
 
-  // Test 8: Login (Sessions)
-  printHeading("Test 8: Login (Sessions)");
-  const loginData = {
-    email: user.email,
-    password: "test123"
-  };
-  
-  const restLoginResp = await restRequest('POST', '/sessions', loginData);
-  
-  const graphqlLoginMutation = `mutation {
-    login(input: {email: "${user.email}", password: "test123"}) {
-      token
-    }
-  }`;
-  
-  const graphqlLoginResp = await graphqlRequest(graphqlLoginMutation);
-  console.log(`${colors.yellow}REST response:${colors.reset} ${JSON.stringify(restLoginResp)}`);
-  console.log(`${colors.yellow}GraphQL response:${colors.reset} ${JSON.stringify(graphqlLoginResp)}`);
-  
-  const loginResult = compareResponses(restLoginResp, graphqlLoginResp, 'login');
-  printResult("Login", loginResult);
-  
   // Get a user ID for testing
   const userId = user.id;
   
