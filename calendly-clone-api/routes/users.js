@@ -38,7 +38,9 @@ router.get('/:userId', auth, (req, res) => {
     if (!row) {
       return res.status(404).json({ error: 'User not found' });
     }
-    res.json(row);
+    // Filter out sensitive fields to match GraphQL response
+    const { password, token, ...userWithoutSensitiveData } = row;
+    res.json(userWithoutSensitiveData);
   });
 });
 
