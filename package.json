@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "start": "concurrently \"node calendly-clone-api/server.js\" \"node calendly-clone-graphql/src/server.js\"",
-    "test": "node tests/test.js",
+    "test": "node tests/test-compare.js",
     "test:compare:js": "node tests/test-compare.js",
     "test:compare:sh": "bash tests/test.sh"
   },
