@@ -548,9 +548,11 @@ async function runApiComparisonTests() {
     color: "#FF5733"
   };
   
+  // Create event for REST user
   const restEventResp = await restRequest('POST', '/events', eventData, restToken);
   const restEventId = restEventResp?.id;
   
+  // Create event for GraphQL user
   const graphqlCreateMutation = `mutation {
     createEvent(input: {
       name: "Test Event",
@@ -568,7 +570,6 @@ async function runApiComparisonTests() {
       }
     }
   }`;
-  
   const graphqlEventResp = await graphqlRequest(graphqlCreateMutation, graphqlToken);
   const graphqlEventId = graphqlEventResp?.data?.createEvent?.id;
   
@@ -586,9 +587,11 @@ async function runApiComparisonTests() {
   
   // Test 5: Get Events
   printHeading("Test 5: Get Events");
+  // Fetch events for REST user
   const restEventsResp = await restRequest('GET', '/events', null, restToken);
+  // Fetch events for GraphQL user
   const graphqlEventsQuery = `query { 
-    events(userId: "${user.id}") { 
+    events(userId: "${graphqlUser.id}") { 
       data {
         id 
         name 
