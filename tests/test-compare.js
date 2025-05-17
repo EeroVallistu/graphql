@@ -408,7 +408,6 @@ async function runApiComparisonTests() {
   
   if (!restUserAuth || !restUserAuth.user) {
     console.error(`${colors.red}Failed to create REST test user${colors.reset}`);
-    printResult("Create REST User", false);
     // Use a dummy user so tests can continue
     restUser = {
       id: "dummy-rest-id",
@@ -419,7 +418,6 @@ async function runApiComparisonTests() {
   } else {
     restUser = restUserAuth.user;
     console.log(`${colors.green}Created REST test user: ${restUser.email} with ID: ${restUser.id}${colors.reset}`);
-    printResult("Create REST User", true);
   }
   
   // Create a user for GraphQL API tests
@@ -431,7 +429,6 @@ async function runApiComparisonTests() {
   
   if (!graphqlUserAuth || !graphqlUserAuth.user) {
     console.error(`${colors.red}Failed to create GraphQL test user${colors.reset}`);
-    printResult("Create GraphQL User", false);
     // Use a dummy user so tests can continue
     graphqlUser = {
       id: "dummy-graphql-id",
@@ -442,7 +439,6 @@ async function runApiComparisonTests() {
   } else {
     graphqlUser = graphqlUserAuth.user;
     console.log(`${colors.green}Created GraphQL test user: ${graphqlUser.email} with ID: ${graphqlUser.id}${colors.reset}`);
-    printResult("Create GraphQL User", true);
   }
   
   // Use the REST user as the primary user for most tests that compare both APIs
