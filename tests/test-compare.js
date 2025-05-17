@@ -158,17 +158,29 @@ function compareResponses(restResp, graphqlResp, graphqlPath) {
     return false;
   }
   
+
   // Get the appropriate data from GraphQL response
   const graphqlData = getNestedValue(graphqlResp.data, graphqlPath);
-  
+
   if (!graphqlData) {
     console.error(`GraphQL data at path '${graphqlPath}' is missing`);
     return false;
   }
-  
+
   // Check that both responses exist
   if (!restResp) {
     console.error('REST response is missing');
+    return false;
+  }
+
+  // Disallow empty object as a valid response for any test (except for DELETE/204 cases handled elsewhere)
+  const isEmptyObject = obj => obj && typeof obj === 'object' && !Array.isArray(obj) && Object.keys(obj).length === 0;
+  if (isEmptyObject(restResp)) {
+    console.error(`${colors.red}REST response is an empty object, which is not allowed${colors.reset}`);
+    return false;
+  }
+  if (isEmptyObject(graphqlData)) {
+    console.error(`${colors.red}GraphQL response data is an empty object, which is not allowed${colors.reset}`);
     return false;
   }
 
