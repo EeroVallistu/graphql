@@ -1126,6 +1126,50 @@ async function runApiComparisonTests() {
   const allEventsDeleted = restDeleteEventSuccess && graphqlDeleteEventSuccess;
   printResult("All Events Deleted", allEventsDeleted);
   
+  // Test 21.5: Logout
+  printHeading("Test 21.5: Logout");
+  
+  // REST API logout - typically deleting the session
+  console.log(`${colors.yellow}Testing REST API logout${colors.reset}`);
+  const restLogoutResp = await restRequest('DELETE', '/sessions', null, restToken);
+  
+  // GraphQL API logout
+  console.log(`${colors.yellow}Testing GraphQL API logout${colors.reset}`);
+  const graphqlLogoutMutation = `mutation {
+    logout
+  }`;
+  const graphqlLogoutResp = await graphqlRequest(graphqlLogoutMutation, graphqlToken);
+  
+  console.log(`${colors.yellow}REST logout response:${colors.reset} ${JSON.stringify(restLogoutResp)}`);
+  console.log(`${colors.yellow}GraphQL logout response:${colors.reset} ${JSON.stringify(graphqlLogoutResp)}`);
+  
+  // For REST API, a successful logout returns a message object: {"message":"Logout successful"}
+  const restLogoutSuccess = restLogoutResp && 
+    (restLogoutResp.message === "Logout successful" || 
+     Object.keys(restLogoutResp).length === 0);
+  
+  // For GraphQL API, a successful logout typically returns { data: { logout: true } }
+  const graphqlLogoutSuccess = graphqlLogoutResp && 
+    (graphqlLogoutResp.data?.logout === true || 
+     graphqlLogoutResp.data?.logout === "true");
+  
+  if (restLogoutSuccess) {
+    console.log(`${colors.green}REST API logout successful${colors.reset}`);
+  } else {
+    console.log(`${colors.red}REST API logout failed${colors.reset}`);
+  }
+  
+  if (graphqlLogoutSuccess) {
+    console.log(`${colors.green}GraphQL API logout successful${colors.reset}`);
+  } else {
+    console.log(`${colors.red}GraphQL API logout failed${colors.reset}`);
+  }
+  
+  // Both APIs should have similar logout behavior
+  const logoutResult = restLogoutSuccess && graphqlLogoutSuccess;
+  
+  printResult("Logout", logoutResult);
+  
   // Test 22: Delete Users
   printHeading("Test 22: Delete Users");
   
