@@ -867,7 +867,7 @@ async function runApiComparisonTests() {
   
   const graphqlCreateAppointmentMutation = `mutation {
     createAppointment(input: {
-      eventId: "${restEventId}",
+      eventId: "${graphqlEventId}",
       inviteeEmail: "invitee@example.com",
       startTime: "${appointmentData.startTime}",
       endTime: "${appointmentData.endTime}"
@@ -903,7 +903,7 @@ async function runApiComparisonTests() {
   printHeading("Test 16: Get Appointments");
   const restAppointmentsResp = await restRequest('GET', '/appointments', null, restToken);
   const graphqlAppointmentsQuery = `query {
-    appointments(userId: "${user.id}") {
+    appointments(userId: "${graphqlUser.id}") {
       data {
         id
         eventId
@@ -1047,7 +1047,7 @@ async function runApiComparisonTests() {
   const restDeleteScheduleResp = await restRequest('DELETE', `/schedules/${user.id}`, null, restToken);
   
   const graphqlDeleteScheduleMutation = `mutation {
-    deleteSchedule(userId: "${user.id}")
+    deleteSchedule(userId: "${graphqlUser.id}")
   }`;
   
   const graphqlDeleteScheduleResp = await graphqlRequest(graphqlDeleteScheduleMutation, graphqlToken);
