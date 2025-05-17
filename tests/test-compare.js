@@ -650,7 +650,7 @@ async function runApiComparisonTests() {
     console.log(`${colors.red}Skipping test: No valid event ID available${colors.reset}`);
   }
   
-  // Test 6: Update Event
+  // Test 7: Update Event
   if (restEventId && graphqlEventId) {
     printHeading("Test 7: Update Event");
     const updateEventData = {
@@ -684,8 +684,8 @@ async function runApiComparisonTests() {
     printResult("Update Event", updateEventResult);
   }
 
-  // Test 9: Get Single User
-  printHeading("Test 9: Get Single User");
+  // Test 8: Get Single User
+  printHeading("Test 8: Get Single User");
   // REST: fetch REST user
   const restUserResp = await restRequest('GET', `/users/${restUser.id}`, null, restToken);
   // GraphQL: fetch GraphQL user
@@ -707,8 +707,8 @@ async function runApiComparisonTests() {
   const userResult = compareResponses(restUserResp, graphqlUserResp, 'user');
   printResult("Get Single User", userResult);
   
-  // Test 10: Update User
-  printHeading("Test 10: Update User");
+  // Test 9: Update User
+  printHeading("Test 9: Update User");
   const updateUserData = {
     name: "Updated User Name",
     timezone: "Europe/London"
@@ -739,8 +739,8 @@ async function runApiComparisonTests() {
   const updateUserResult = compareResponses(restUpdateUserResp, graphqlUpdateUserResp, 'updateUser');
   printResult("Update User", updateUserResult);
   
-  // Test 11: Create Schedule
-  printHeading("Test 11: Create Schedule");
+  // Test 10: Create Schedule
+  printHeading("Test 10: Create Schedule");
   const restScheduleData = {
     userId: restUser.id,
     availability: {
@@ -778,8 +778,8 @@ async function runApiComparisonTests() {
   const scheduleResult = compareResponses(restScheduleResp, graphqlScheduleResp, 'createSchedule');
   printResult("Create Schedule", scheduleResult);
   
-  // Test 12: Get Schedules
-  printHeading("Test 12: Get Schedules");
+  // Test 11: Get Schedules
+  printHeading("Test 11: Get Schedules");
   const restSchedulesResp = await restRequest('GET', '/schedules', null, restToken);
   const graphqlSchedulesQuery = `query {
     schedules {
@@ -793,8 +793,8 @@ async function runApiComparisonTests() {
   const schedulesResult = compareResponses(restSchedulesResp, graphqlSchedulesResp, 'schedules');
   printResult("Get Schedules", schedulesResult);
   
-  // Test 13: Get Single Schedule
-  printHeading("Test 13: Get Single Schedule");
+  // Test 12: Get Single Schedule
+  printHeading("Test 12: Get Single Schedule");
   const restSingleScheduleResp = await restRequest('GET', `/schedules/${restUser.id}`, null, restToken);
   const graphqlSingleScheduleQuery = `query {
     schedule(userId: "${graphqlUser.id}") {
@@ -810,8 +810,8 @@ async function runApiComparisonTests() {
   const singleScheduleResult = compareResponses(restSingleScheduleResp, graphqlSingleScheduleResp, 'schedule');
   printResult("Get Single Schedule", singleScheduleResult);
   
-  // Test 14: Update Schedule
-  printHeading("Test 14: Update Schedule");
+  // Test 13: Update Schedule
+  printHeading("Test 13: Update Schedule");
   const updateRestScheduleData = {
     availability: {
       monday: [
@@ -846,8 +846,8 @@ async function runApiComparisonTests() {
   const updateScheduleResult = compareResponses(restUpdateScheduleResp, graphqlUpdateScheduleResp, 'updateSchedule');
   printResult("Update Schedule", updateScheduleResult);
   
-  // Test 15: Create Appointment
-  printHeading("Test 15: Create Appointment");
+  // Test 14: Create Appointment
+  printHeading("Test 14: Create Appointment");
   const appointmentData = {
     eventId: restEventId,
     inviteeEmail: "invitee@example.com",
@@ -892,8 +892,8 @@ async function runApiComparisonTests() {
     console.log(`${colors.red}Failed to create appointments${colors.reset}`);
   }
   
-  // Test 16: Get Appointments
-  printHeading("Test 16: Get Appointments");
+  // Test 15: Get Appointments
+  printHeading("Test 15: Get Appointments");
   const restAppointmentsResp = await restRequest('GET', '/appointments', null, restToken);
   const graphqlAppointmentsQuery = `query {
     appointments(userId: "${graphqlUser.id}") {
@@ -923,7 +923,7 @@ async function runApiComparisonTests() {
   
   // Test 16: Get Single Appointment
   if (restAppointmentId && graphqlAppointmentId) {
-    printHeading("Test 17: Get Single Appointment");
+    printHeading("Test 16: Get Single Appointment");
     // REST API: get the REST appointment with REST token
     const restSingleAppointmentResp = await restRequest('GET', `/appointments/${restAppointmentId}`, null, restToken);
     
@@ -950,9 +950,9 @@ async function runApiComparisonTests() {
     printResult("Get Single Appointment", singleAppointmentResult);
   }
   
-  // Test 17: Update Appointment
+  // Test 16: Update Appointment
   if (restAppointmentId && graphqlAppointmentId) {
-    printHeading("Test 18: Update Appointment");
+    printHeading("Test 17: Update Appointment");
     const updateAppointmentData = {
       status: "cancelled"
     };
@@ -985,9 +985,9 @@ async function runApiComparisonTests() {
     printResult("Update Appointment", updateAppointmentResult);
   }
   
-  // Test 19: Delete Appointment (if created)
+  // Test 18: Delete Appointment (if created)
   // We need to delete both REST and GraphQL appointments separately since they have different IDs
-  printHeading("Test 19: Delete Appointment");
+  printHeading("Test 18: Delete Appointment");
   let restDeleteAppointmentSuccess = false;
   let graphqlDeleteAppointmentSuccess = false;
   
@@ -1045,8 +1045,8 @@ async function runApiComparisonTests() {
   
   printResult("Delete Appointment", bothSuccess);
   
-  // Test 19: Delete Schedule
-  printHeading("Test 20: Delete Schedule");
+  // Test 18: Delete Schedule
+  printHeading("Test 19: Delete Schedule");
   const restDeleteScheduleResp = await restRequest('DELETE', `/schedules/${restUser.id}`, null, restToken);
   const graphqlDeleteScheduleMutation = `mutation {
     deleteSchedule(userId: "${graphqlUser.id}")
@@ -1073,12 +1073,12 @@ async function runApiComparisonTests() {
   
   printResult("Delete Schedule", bothScheduleSuccess);
   
-  // Test 20: Delete Events (if created)
+  // Test 19: Delete Events (if created)
   // First delete the REST event
   let restDeleteEventSuccess = false;
   let graphqlDeleteEventSuccess = false;
   
-  printHeading("Test 21: Delete Events");
+  printHeading("Test 20: Delete Events");
   if (restEventId) {
     const restDeleteEventResp = await restRequest('DELETE', `/events/${restEventId}`, null, restToken);
     const graphqlDeleteRestEventMutation = `mutation {
@@ -1126,8 +1126,8 @@ async function runApiComparisonTests() {
   const allEventsDeleted = restDeleteEventSuccess && graphqlDeleteEventSuccess;
   printResult("All Events Deleted", allEventsDeleted);
   
-  // Test 21.5: Logout
-  printHeading("Test 21.5: Logout");
+  // Test 21: Logout
+  printHeading("Test 21: Logout");
   
   // REST API logout - typically deleting the session
   console.log(`${colors.yellow}Testing REST API logout${colors.reset}`);
@@ -1177,7 +1177,24 @@ async function runApiComparisonTests() {
   const restUserId = restUser.id;
   console.log(`${colors.yellow}Deleting REST user with ID: ${restUserId}${colors.reset}`);
   
-  const restDeleteUserResp = await restRequest('DELETE', `/users/${restUserId}`, null, restToken);
+  // Need to login again after logout
+  console.log(`${colors.yellow}Attempting to refresh REST token before user deletion${colors.reset}`);
+  const restRefreshLoginData = {
+    email: restUser.email,
+    password: "test123"
+  };
+  const restRefreshLoginResp = await restRequest('POST', '/sessions', restRefreshLoginData);
+  
+  // Use the fresh token if available, otherwise use the old one
+  let freshRestToken = restToken;
+  if (restRefreshLoginResp && restRefreshLoginResp.token) {
+    freshRestToken = restRefreshLoginResp.token;
+    console.log(`${colors.green}Successfully refreshed REST token${colors.reset}`);
+  } else {
+    console.log(`${colors.yellow}Unable to refresh REST token, will try with original token${colors.reset}`);
+  }
+  
+  const restDeleteUserResp = await restRequest('DELETE', `/users/${restUserId}`, null, freshRestToken);
   console.log(`${colors.yellow}REST delete response:${colors.reset} ${JSON.stringify(restDeleteUserResp)}`);
   
   // DELETE usually returns 204 No Content, so we check differently
