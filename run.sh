@@ -18,7 +18,7 @@ bun run start
 # echo "Starting REST API server..."
 # bun run --cwd calendly-clone-api server.js &
 #
-# echo "Starting GraphQL server..."
+# echo "Starting GraphQL server...."
 # bun run --cwd calendly-clone-graphql src/server.js &
 #
 # # Wait for both servers

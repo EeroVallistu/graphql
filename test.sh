@@ -18,7 +18,7 @@ bun run test
 
 # You can add additional test categories here
 # For example:
-# echo "Running unit tests..."
+# echo "Running unit tests...."
 # bun run test:unit
 #
 # echo "Running integration tests..."
