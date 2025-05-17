@@ -639,7 +639,7 @@ async function runApiComparisonTests() {
   }
   
   // Test 6: Update Event
-  if (restEventId) {
+  if (restEventId && graphqlEventId) {
     printHeading("Test 7: Update Event");
     const updateEventData = {
       name: "Updated Test Event",
@@ -649,7 +649,7 @@ async function runApiComparisonTests() {
     const restUpdateEventResp = await restRequest('PATCH', `/events/${restEventId}`, updateEventData, restToken);
     
     const graphqlUpdateMutation = `mutation {
-      updateEvent(eventId: "${restEventId}", input: {
+      updateEvent(eventId: "${graphqlEventId}", input: {
         name: "Updated Test Event",
         description: "Updated description"
       }) {
