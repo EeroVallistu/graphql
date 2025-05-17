@@ -43,12 +43,12 @@ export const scheduleResolvers = {
       
       try {
         const rows = await db.query('SELECT * FROM schedules WHERE userId = ?', [user.id]);
-        
-        // Parse availability for each schedule
+        // Parse availability for each schedule and explicitly include id
         return rows.map(row => ({
-          ...row,
-          availability: typeof row.availability === 'string' 
-            ? JSON.parse(row.availability) 
+          id: row.id,
+          userId: row.userId,
+          availability: typeof row.availability === 'string'
+            ? JSON.parse(row.availability)
             : row.availability
         }));
       } catch (error) {

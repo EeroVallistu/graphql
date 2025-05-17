@@ -234,47 +234,86 @@ function compareResponses(restResp, graphqlResp, graphqlPath) {
       }
     }
   } else {
-    // Standard comparison for non-paginated endpoints
-    // Filter out sensitive fields like password and token from the REST API response
-    const sensitiveFields = ['password', 'token'];
-    const restKeys = Object.keys(restResp)
-      .filter(key => !sensitiveFields.includes(key))
-      .sort();
-    const graphqlKeys = Object.keys(graphqlData).sort();
-
-    // Log the comparison for debugging
-    console.log(`${colors.yellow}REST keys (excluding sensitive):${colors.reset} ${JSON.stringify(restKeys)}`);
-    console.log(`${colors.yellow}GraphQL keys:${colors.reset} ${JSON.stringify(graphqlKeys)}`);
-    
-    // For standard endpoints, check if all GraphQL keys are present in REST keys
-    const allKeysPresent = graphqlKeys.every(key => restKeys.includes(key));
-    
-    // For update operations, REST might return only the updated fields
-    // Check if the keys that ARE returned by REST have matching values in GraphQL
-    const isUpdateOperation = graphqlPath && 
-      (graphqlPath.includes('update') || graphqlPath.includes('Update'));
-    
-    // Find missing keys in REST response
-    const missingKeys = graphqlKeys.filter(key => !restKeys.includes(key));
-    
-    // For updates, check if the fields present in both have matching values
-    const commonKeys = restKeys.filter(key => graphqlKeys.includes(key));
-    const commonValuesMatch = commonKeys.every(key => {
-      return JSON.stringify(restResp[key]) === JSON.stringify(graphqlData[key]);
-    });
-    
-    if (allKeysPresent) {
-      console.log(`${colors.green}All required keys present in both responses${colors.reset}`);
-      return true;
-    } else if (isUpdateOperation && commonKeys.length > 0 && commonValuesMatch) {
-      console.log(`${colors.green}Update operation: common fields match between responses${colors.reset}`);
-      console.log(`${colors.yellow}Common keys:${colors.reset} ${JSON.stringify(commonKeys)}`);
-      
-      if (missingKeys.length > 0) {
-        console.log(`${colors.yellow}Warning: REST API is missing these fields present in GraphQL:${colors.reset} ${JSON.stringify(missingKeys)}`);
+    // If both responses are arrays, compare the keys of the first element in each array
+    if (Array.isArray(restResp) && Array.isArray(graphqlData)) {
+      if (restResp.length === 0 || graphqlData.length === 0) {
+        console.error(`${colors.red}One of the response arrays is empty${colors.reset}`);
+        return false;
       }
+      const sensitiveFields = ['password', 'token'];
+      const restKeys = Object.keys(restResp[0])
+        .filter(key => !sensitiveFields.includes(key))
+        .sort();
+      const graphqlKeys = Object.keys(graphqlData[0]).sort();
+      console.log(`${colors.yellow}REST keys (excluding sensitive):${colors.reset} ${JSON.stringify(restKeys)}`);
+      console.log(`${colors.yellow}GraphQL keys:${colors.reset} ${JSON.stringify(graphqlKeys)}`);
+
+      // Enforce that both have 'id' key
+      if (!restKeys.includes('id') || !graphqlKeys.includes('id')) {
+        console.log(`${colors.red}Both REST and GraphQL array elements must have an 'id' key${colors.reset}`);
+        return false;
+      }
+
+      // All keys must match exactly
+      const keysMatch = restKeys.length === graphqlKeys.length && restKeys.every((k, i) => k === graphqlKeys[i]);
+      if (keysMatch) {
+        console.log(`${colors.green}All required keys (including 'id') present and match in both responses${colors.reset}`);
+        return true;
+      } else {
+        const missingInRest = graphqlKeys.filter(key => !restKeys.includes(key));
+        const missingInGraphql = restKeys.filter(key => !graphqlKeys.includes(key));
+        if (missingInRest.length > 0) {
+          console.log(`${colors.red}Missing in REST: ${JSON.stringify(missingInRest)}${colors.reset}`);
+        }
+        if (missingInGraphql.length > 0) {
+          console.log(`${colors.red}Missing in GraphQL: ${JSON.stringify(missingInGraphql)}${colors.reset}`);
+        }
+        console.log(`${colors.red}Response array element structures differ${colors.reset}`);
+        return false;
+      }
+    } else {
+      // Standard comparison for non-paginated endpoints
+      // Filter out sensitive fields like password and token from the REST API response
+      const sensitiveFields = ['password', 'token'];
+      const restKeys = Object.keys(restResp)
+        .filter(key => !sensitiveFields.includes(key))
+        .sort();
+      const graphqlKeys = Object.keys(graphqlData).sort();
+
+      // Log the comparison for debugging
+      console.log(`${colors.yellow}REST keys (excluding sensitive):${colors.reset} ${JSON.stringify(restKeys)}`);
+      console.log(`${colors.yellow}GraphQL keys:${colors.reset} ${JSON.stringify(graphqlKeys)}`);
       
-      return true;
+      // For standard endpoints, check if all GraphQL keys are present in REST keys
+      const allKeysPresent = graphqlKeys.every(key => restKeys.includes(key));
+      
+      // For update operations, REST might return only the updated fields
+      // Check if the keys that ARE returned by REST have matching values in GraphQL
+      const isUpdateOperation = graphqlPath && 
+        (graphqlPath.includes('update') || graphqlPath.includes('Update'));
+      
+      // Find missing keys in REST response
+      const missingKeys = graphqlKeys.filter(key => !restKeys.includes(key));
+      
+      // For updates, check if the fields present in both have matching values
+      const commonKeys = restKeys.filter(key => graphqlKeys.includes(key));
+      const commonValuesMatch = commonKeys.every(key => {
+        return JSON.stringify(restResp[key]) === JSON.stringify(graphqlData[key]);
+      });
+      
+      if (allKeysPresent) {
+        console.log(`${colors.green}All required keys present in both responses${colors.reset}`);
+        return true;
+      } else if (isUpdateOperation && commonKeys.length > 0 && commonValuesMatch) {
+        console.log(`${colors.green}Update operation: common fields match between responses${colors.reset}`);
+        console.log(`${colors.yellow}Common keys:${colors.reset} ${JSON.stringify(commonKeys)}`);
+        
+        if (missingKeys.length > 0) {
+          console.log(`${colors.yellow}Warning: REST API is missing these fields present in GraphQL:${colors.reset} ${JSON.stringify(missingKeys)}`);
+        }
+        
+        return true;
+      }
     }
   }
   
@@ -795,6 +834,7 @@ async function runApiComparisonTests() {
   const restSchedulesResp = await restRequest('GET', '/schedules', null, restToken);
   const graphqlSchedulesQuery = `query {
     schedules {
+      id
       userId
       availability
     }
@@ -811,6 +851,7 @@ async function runApiComparisonTests() {
   const graphqlSingleScheduleQuery = `query {
     schedule(userId: "${graphqlUser.id}") {
       ... on Schedule {
+        id
         userId
         availability
       }
