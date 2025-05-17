@@ -926,11 +926,14 @@ async function runApiComparisonTests() {
   printResult("Get Appointments", appointmentsResult);
   
   // Test 16: Get Single Appointment
-  if (restAppointmentId) {
+  if (restAppointmentId && graphqlAppointmentId) {
     printHeading("Test 17: Get Single Appointment");
+    // REST API: get the REST appointment with REST token
     const restSingleAppointmentResp = await restRequest('GET', `/appointments/${restAppointmentId}`, null, restToken);
+    
+    // GraphQL API: get the GraphQL appointment with GraphQL token
     const graphqlSingleAppointmentQuery = `query {
-      appointment(appointmentId: "${restAppointmentId}") {
+      appointment(appointmentId: "${graphqlAppointmentId}") {
         ... on Appointment {
           id
           eventId
@@ -944,24 +947,26 @@ async function runApiComparisonTests() {
     }`;
     const graphqlSingleAppointmentResp = await graphqlRequest(graphqlSingleAppointmentQuery, graphqlToken);
     
-    console.log(`${colors.yellow}REST response:${colors.reset} ${JSON.stringify(restSingleAppointmentResp)}`);
-    console.log(`${colors.yellow}GraphQL response:${colors.reset} ${JSON.stringify(graphqlSingleAppointmentResp)}`);
+    console.log(`${colors.yellow}REST response (ID: ${restAppointmentId}):${colors.reset} ${JSON.stringify(restSingleAppointmentResp)}`);
+    console.log(`${colors.yellow}GraphQL response (ID: ${graphqlAppointmentId}):${colors.reset} ${JSON.stringify(graphqlSingleAppointmentResp)}`);
     
     const singleAppointmentResult = compareResponses(restSingleAppointmentResp, graphqlSingleAppointmentResp, 'appointment');
     printResult("Get Single Appointment", singleAppointmentResult);
   }
   
   // Test 17: Update Appointment
-  if (restAppointmentId) {
+  if (restAppointmentId && graphqlAppointmentId) {
     printHeading("Test 18: Update Appointment");
     const updateAppointmentData = {
       status: "cancelled"
     };
     
+    // Update REST appointment with REST token
     const restUpdateAppointmentResp = await restRequest('PATCH', `/appointments/${restAppointmentId}`, updateAppointmentData, restToken);
     
+    // Update GraphQL appointment with GraphQL token
     const graphqlUpdateAppointmentMutation = `mutation {
-      updateAppointment(appointmentId: "${restAppointmentId}", input: {
+      updateAppointment(appointmentId: "${graphqlAppointmentId}", input: {
         status: "cancelled"
       }) {
         ... on Appointment {
@@ -977,8 +982,8 @@ async function runApiComparisonTests() {
     }`;
     
     const graphqlUpdateAppointmentResp = await graphqlRequest(graphqlUpdateAppointmentMutation, graphqlToken);
-    console.log(`${colors.yellow}REST response:${colors.reset} ${JSON.stringify(restUpdateAppointmentResp)}`);
-    console.log(`${colors.yellow}GraphQL response:${colors.reset} ${JSON.stringify(graphqlUpdateAppointmentResp)}`);
+    console.log(`${colors.yellow}REST response (ID: ${restAppointmentId}):${colors.reset} ${JSON.stringify(restUpdateAppointmentResp)}`);
+    console.log(`${colors.yellow}GraphQL response (ID: ${graphqlAppointmentId}):${colors.reset} ${JSON.stringify(graphqlUpdateAppointmentResp)}`);
     
     const updateAppointmentResult = compareResponses(restUpdateAppointmentResp, graphqlUpdateAppointmentResp, 'updateAppointment');
     printResult("Update Appointment", updateAppointmentResult);
