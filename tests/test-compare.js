@@ -30,7 +30,14 @@ function generateRandomEmail() {
   return `test${crypto.randomUUID()}@example.com`;
 }
 
-// Function for making REST API requests
+/**
+ * Makes a REST API request.
+ * @param {string} method - HTTP method (GET, POST, etc.)
+ * @param {string} endpoint - API endpoint
+ * @param {object|null} [data=null] - Request body data for POST/PATCH/PUT
+ * @param {string} [token=''] - Bearer token for authentication
+ * @returns {Promise<any>} - The response from the API
+ */
 async function restRequest(method, endpoint, data = null, token = '') {
   const headers = {
     'Content-Type': 'application/json'
@@ -672,14 +679,13 @@ async function runApiComparisonTests() {
     printResult("Update Event", updateEventResult);
   }
 
-  // Get a user ID for testing
-  const userId = user.id;
-  
   // Test 9: Get Single User
   printHeading("Test 9: Get Single User");
-  const restUserResp = await restRequest('GET', `/users/${userId}`, null, restToken);
+  // REST: fetch REST user
+  const restUserResp = await restRequest('GET', `/users/${restUser.id}`, null, restToken);
+  // GraphQL: fetch GraphQL user
   const graphqlUserQuery = `query {
-    user(userId: "${userId}") {
+    user(userId: "${graphqlUser.id}") {
       ... on User {
         id
         name
@@ -703,10 +709,12 @@ async function runApiComparisonTests() {
     timezone: "Europe/London"
   };
   
-  const restUpdateUserResp = await restRequest('PATCH', `/users/${userId}`, updateUserData, restToken);
+  // REST: use restUser.id and restToken
+  const restUpdateUserResp = await restRequest('PATCH', `/users/${restUser.id}`, updateUserData, restToken);
   
+  // GraphQL: use graphqlUser.id and graphqlToken
   const graphqlUpdateUserMutation = `mutation {
-    updateUser(userId: "${userId}", input: {
+    updateUser(userId: "${graphqlUser.id}", input: {
       name: "Updated User Name",
       timezone: "Europe/London"
     }) {
@@ -729,7 +737,7 @@ async function runApiComparisonTests() {
   // Test 11: Create Schedule
   printHeading("Test 11: Create Schedule");
   const scheduleData = {
-    userId: userId,
+    userId: user.id,
     availability: {
       monday: [
         { start: "09:00", end: "12:00" },
@@ -744,11 +752,16 @@ async function runApiComparisonTests() {
   
   const restScheduleResp = await restRequest('POST', '/schedules', scheduleData, restToken);
   
-  const availabilityString = JSON.stringify(scheduleData.availability).replace(/"/g, '\\"');
+  // Use GraphQL user id and same availability for GraphQL
+  const graphqlScheduleData = {
+    userId: graphqlUser.id,
+    availability: scheduleData.availability
+  };
+  const graphqlAvailabilityString = JSON.stringify(graphqlScheduleData.availability).replace(/"/g, '\\"');
   const graphqlCreateScheduleMutation = `mutation {
     createSchedule(input: {
-      userId: "${userId}",
-      availability: "${availabilityString}"
+      userId: "${graphqlUser.id}",
+      availability: "${graphqlAvailabilityString}"
     }) {
       ... on Schedule {
         userId
@@ -783,9 +796,9 @@ async function runApiComparisonTests() {
   
   // Test 13: Get Single Schedule
   printHeading("Test 13: Get Single Schedule");
-  const restSingleScheduleResp = await restRequest('GET', `/schedules/${userId}`, null, restToken);
+  const restSingleScheduleResp = await restRequest('GET', `/schedules/${user.id}`, null, restToken);
   const graphqlSingleScheduleQuery = `query {
-    schedule(userId: "${userId}") {
+    schedule(userId: "${graphqlUser.id}") {
       ... on Schedule {
         userId
         availability
@@ -815,15 +828,18 @@ async function runApiComparisonTests() {
     }
   };
   
-  const restUpdateScheduleResp = await restRequest('PATCH', `/schedules/${userId}`, updateScheduleData, restToken);
+  // REST: update REST user's schedule
+  const restUpdateScheduleResp = await restRequest('PATCH', `/schedules/${user.id}`, updateScheduleData, restToken);
   
+  // GraphQL: update GraphQL user's schedule
   const updatedAvailabilityString = JSON.stringify(updateScheduleData.availability).replace(/"/g, '\\"');
   const graphqlUpdateScheduleMutation = `mutation {
-    updateSchedule(userId: "${userId}", input: {
-      userId: "${userId}",
+    updateSchedule(userId: "${graphqlUser.id}", input: {
+      userId: "${graphqlUser.id}",
       availability: "${updatedAvailabilityString}"
     }) {
       ... on Schedule {
+        id
         userId
         availability
       }
@@ -887,7 +903,7 @@ async function runApiComparisonTests() {
   printHeading("Test 16: Get Appointments");
   const restAppointmentsResp = await restRequest('GET', '/appointments', null, restToken);
   const graphqlAppointmentsQuery = `query {
-    appointments(userId: "${userId}") {
+    appointments(userId: "${user.id}") {
       data {
         id
         eventId
@@ -1028,10 +1044,10 @@ async function runApiComparisonTests() {
   
   // Test 19: Delete Schedule
   printHeading("Test 20: Delete Schedule");
-  const restDeleteScheduleResp = await restRequest('DELETE', `/schedules/${userId}`, null, restToken);
+  const restDeleteScheduleResp = await restRequest('DELETE', `/schedules/${user.id}`, null, restToken);
   
   const graphqlDeleteScheduleMutation = `mutation {
-    deleteSchedule(userId: "${userId}")
+    deleteSchedule(userId: "${user.id}")
   }`;
   
   const graphqlDeleteScheduleResp = await graphqlRequest(graphqlDeleteScheduleMutation, graphqlToken);
