@@ -170,7 +170,7 @@ type Query {
 
 type Mutation {
   # User mutations
-  createUser(input: CreateUserInput!): UserResult!
+  createUser(input: CreateUserInput!): UserResult! @skipAuth
   updateUser(userId: ID!, input: UpdateUserInput!): UserResult!
   deleteUser(userId: ID!): Boolean!
   

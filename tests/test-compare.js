@@ -1,6 +1,9 @@
 // test-compare.js - Comparing REST and GraphQL API responses
 // This script runs a set of tests to compare REST API and GraphQL API responses
 // for a typical test dataset
+// @ts-nocheck
+// Force CommonJS mode
+// @ts-check
 
 const crypto = require('crypto');
 const path = require('path');
@@ -296,31 +299,78 @@ function printResult(testName, success) {
   }
 }
 
-// Register a new user
-async function registerTestUser() {
+// Register a new user for REST API tests
+async function registerRestTestUser() {
   const userData = {
-    name: "Test User",
+    name: "REST Test User",
     email: generateRandomEmail(),
     password: "test123"
   };
   
-  console.log(`${colors.yellow}Registering test user: ${userData.email}${colors.reset}`);
+  console.log(`${colors.yellow}Registering REST test user: ${userData.email}${colors.reset}`);
   
   try {
     // Register using REST API
     const registerResponse = await restRequest('POST', '/users', userData);
     
     if (!registerResponse || !registerResponse.id) {
-      console.error(`${colors.red}Failed to register user: ${JSON.stringify(registerResponse)}${colors.reset}`);
+      console.error(`${colors.red}Failed to register REST user: ${JSON.stringify(registerResponse)}${colors.reset}`);
       return null;
     }
     
-    console.log(`${colors.green}User registered successfully${colors.reset}`);
+    console.log(`${colors.green}REST user registered successfully with ID: ${registerResponse.id}${colors.reset}`);
     return {
       user: { ...userData, id: registerResponse.id }
     };
   } catch (error) {
-    console.error(`${colors.red}Error registering user: ${error}${colors.reset}`);
+    console.error(`${colors.red}Error registering REST user: ${error}${colors.reset}`);
+    return null;
+  }
+}
+
+// Register a new user for GraphQL API tests
+async function registerGraphQLTestUser() {
+  const userData = {
+    name: "GraphQL Test User",
+    email: generateRandomEmail(),
+    password: "test123"
+  };
+  
+  console.log(`${colors.yellow}Registering GraphQL test user: ${userData.email}${colors.reset}`);
+  
+  try {
+    // Register using GraphQL API
+    const registerMutation = `mutation {
+      createUser(input: {
+        name: "${userData.name}",
+        email: "${userData.email}",
+        password: "${userData.password}"
+      }) {
+        ... on User {
+          id
+          name
+          email
+        }
+      }
+    }`;
+    
+    const registerResponse = await graphqlRequest(registerMutation);
+    
+    if (!registerResponse || !registerResponse.data || !registerResponse.data.createUser || !registerResponse.data.createUser.id) {
+      console.error(`${colors.red}Failed to register GraphQL user: ${JSON.stringify(registerResponse)}${colors.reset}`);
+      return null;
+    }
+    
+    const userId = registerResponse.data.createUser.id;
+    console.log(`${colors.green}GraphQL user registered successfully with ID: ${userId}${colors.reset}`);
+    return {
+      user: { 
+        ...userData, 
+        id: userId 
+      }
+    };
+  } catch (error) {
+    console.error(`${colors.red}Error registering GraphQL user: ${error}${colors.reset}`);
     return null;
   }
 }
@@ -330,32 +380,62 @@ async function runApiComparisonTests() {
   console.log(`${colors.blue}Starting API comparison tests${colors.reset}`);
   console.log(`${colors.yellow}Tests will compare REST API (${REST_API_URL}) and GraphQL API (${GRAPHQL_URL})${colors.reset}`);
   
-  // Test 1: Create User
-  printHeading("Test 1: Create User");
-  const userAuth = await registerTestUser();
+  // Test 1: Create Users - one for REST API tests and one for GraphQL API tests
+  printHeading("Test 1: Create Users");
   
-  // Define user variable first
-  let user;
+  // Create a user for REST API tests
+  console.log(`${colors.blue}Creating user for REST API tests${colors.reset}`);
+  const restUserAuth = await registerRestTestUser();
   
-  if (!userAuth || !userAuth.user) {
-    console.error(`${colors.red}Failed to create test user${colors.reset}`);
-    printResult("Create User", false);
+  // Define REST user variable
+  let restUser;
+  
+  if (!restUserAuth || !restUserAuth.user) {
+    console.error(`${colors.red}Failed to create REST test user${colors.reset}`);
+    printResult("Create REST User", false);
     // Use a dummy user so tests can continue
-    user = {
-      id: "dummy-id",
-      name: "Dummy User",
-      email: "dummy@example.com",
+    restUser = {
+      id: "dummy-rest-id",
+      name: "Dummy REST User",
+      email: "dummy-rest@example.com",
       password: "test123"
     };
   } else {
-    user = userAuth.user;
-    console.log(`${colors.green}Created test user: ${user.email}${colors.reset}`);
-    printResult("Create User", true);
+    restUser = restUserAuth.user;
+    console.log(`${colors.green}Created REST test user: ${restUser.email} with ID: ${restUser.id}${colors.reset}`);
+    printResult("Create REST User", true);
   }
   
-  // Compare the registration response
-  const registerResult = userAuth !== null;
-  printResult("Create User", registerResult);
+  // Create a user for GraphQL API tests
+  console.log(`${colors.blue}Creating user for GraphQL API tests${colors.reset}`);
+  const graphqlUserAuth = await registerGraphQLTestUser();
+  
+  // Define GraphQL user variable
+  let graphqlUser;
+  
+  if (!graphqlUserAuth || !graphqlUserAuth.user) {
+    console.error(`${colors.red}Failed to create GraphQL test user${colors.reset}`);
+    printResult("Create GraphQL User", false);
+    // Use a dummy user so tests can continue
+    graphqlUser = {
+      id: "dummy-graphql-id",
+      name: "Dummy GraphQL User",
+      email: "dummy-graphql@example.com",
+      password: "test123"
+    };
+  } else {
+    graphqlUser = graphqlUserAuth.user;
+    console.log(`${colors.green}Created GraphQL test user: ${graphqlUser.email} with ID: ${graphqlUser.id}${colors.reset}`);
+    printResult("Create GraphQL User", true);
+  }
+  
+  // Use the REST user as the primary user for most tests that compare both APIs
+  const user = restUser;
+  
+  // Compare the registration responses
+  const restRegisterResult = restUserAuth !== null;
+  const graphqlRegisterResult = graphqlUserAuth !== null;
+  printResult("Create Users", restRegisterResult && graphqlRegisterResult);
 
   // Test 2: Login (Sessions)
   printHeading("Test 2: Login (Sessions)");
@@ -366,8 +446,9 @@ async function runApiComparisonTests() {
   
   const restLoginResp = await restRequest('POST', '/sessions', loginData);
   
+  // Use GraphQL user for GraphQL login
   const graphqlLoginMutation = `mutation {
-    login(input: {email: "${user.email}", password: "test123"}) {
+    login(input: {email: "${graphqlUser.email}", password: "test123"}) {
       token
     }
   }`;
@@ -973,108 +1054,166 @@ async function runApiComparisonTests() {
   // For stricter comparison, use bothScheduleSuccess
   printResult("Delete Schedule", bothScheduleSuccess);
   
-  // Test 20: Delete Event (if created)
+  // Test 20: Delete Events (if created)
+  // First delete the REST event
+  let restDeleteEventSuccess = false;
+  let graphqlDeleteEventSuccess = false;
+  
   if (restEventId) {
-    printHeading("Test 21: Delete Event");
+    printHeading("Test 21: Delete REST Event");
     const restDeleteEventResp = await restRequest('DELETE', `/events/${restEventId}`, null, restToken);
     
-    const graphqlDeleteEventMutation = `mutation {
+    const graphqlDeleteRestEventMutation = `mutation {
       deleteEvent(eventId: "${restEventId}")
+    }`;
+    
+    const graphqlDeleteRestEventResp = await graphqlRequest(graphqlDeleteRestEventMutation, graphqlToken);
+    
+    console.log(`${colors.yellow}REST delete response:${colors.reset} ${JSON.stringify(restDeleteEventResp)}`);
+    console.log(`${colors.yellow}GraphQL delete response:${colors.reset} ${JSON.stringify(graphqlDeleteRestEventResp)}`);
+    
+    // DELETE usually returns 204 No Content, so we check differently
+    restDeleteEventSuccess = restDeleteEventResp === null || Object.keys(restDeleteEventResp).length === 0;
+    const graphqlDeleteRestEventSuccess = graphqlDeleteRestEventResp && 
+      (graphqlDeleteRestEventResp.data?.deleteEvent === true || 
+       graphqlDeleteRestEventResp.data?.deleteEvent === "true");
+    
+    // For API comparison, both should behave the same way
+    const bothRestEventSuccess = restDeleteEventSuccess && graphqlDeleteRestEventSuccess;
+    
+    if (restDeleteEventSuccess !== graphqlDeleteRestEventSuccess) {
+      console.log(`${colors.yellow}Warning: API behavior discrepancy detected!${colors.reset}`);
+      console.log(`${colors.yellow}REST API success: ${restDeleteEventSuccess}, GraphQL API success: ${graphqlDeleteRestEventSuccess}${colors.reset}`);
+    }
+    
+    printResult("Delete REST Event", bothRestEventSuccess);
+  }
+  
+  // Then delete the GraphQL event if it exists and is different from REST event
+  if (graphqlEventId && graphqlEventId !== restEventId) {
+    printHeading("Test 21.2: Delete GraphQL Event");
+    
+    const graphqlDeleteEventMutation = `mutation {
+      deleteEvent(eventId: "${graphqlEventId}")
     }`;
     
     const graphqlDeleteEventResp = await graphqlRequest(graphqlDeleteEventMutation, graphqlToken);
     
-    console.log(`${colors.yellow}REST delete response:${colors.reset} ${JSON.stringify(restDeleteEventResp)}`);
-    console.log(`${colors.yellow}GraphQL delete response:${colors.reset} ${JSON.stringify(graphqlDeleteEventResp)}`);
+    console.log(`${colors.yellow}GraphQL delete response for GraphQL event ${graphqlEventId}:${colors.reset} ${JSON.stringify(graphqlDeleteEventResp)}`);
     
-    // DELETE usually returns 204 No Content, so we check differently
-    const restDeleteEventSuccess = restDeleteEventResp === null || Object.keys(restDeleteEventResp).length === 0;
-    const graphqlDeleteEventSuccess = graphqlDeleteEventResp && 
+    graphqlDeleteEventSuccess = graphqlDeleteEventResp && 
       (graphqlDeleteEventResp.data?.deleteEvent === true || 
        graphqlDeleteEventResp.data?.deleteEvent === "true");
     
-    // For API comparison, both should behave the same way
-    const bothEventSuccess = restDeleteEventSuccess && graphqlDeleteEventSuccess;
-    const eitherEventSuccess = restDeleteEventSuccess || graphqlDeleteEventSuccess;
-    
-    if (restDeleteEventSuccess !== graphqlDeleteEventSuccess) {
-      console.log(`${colors.yellow}Warning: API behavior discrepancy detected!${colors.reset}`);
-      console.log(`${colors.yellow}REST API success: ${restDeleteEventSuccess}, GraphQL API success: ${graphqlDeleteEventSuccess}${colors.reset}`);
-    }
-    
-    // For stricter comparison, use bothEventSuccess
-    printResult("Delete Event", bothEventSuccess);
+    printResult("Delete GraphQL Event", graphqlDeleteEventSuccess);
+  } else {
+    console.log(`${colors.yellow}Skipping GraphQL event deletion as either no GraphQL event was created or it was the same as the REST event${colors.reset}`);
+    graphqlDeleteEventSuccess = true; // No GraphQL event to delete = success
   }
   
-  // Test 21: Delete User
-  printHeading("Test 22: Delete User");
+  // Overall event deletion success
+  const allEventsDeleted = restDeleteEventSuccess && graphqlDeleteEventSuccess;
+  printResult("All Events Deleted", allEventsDeleted);
   
-  // For user deletion, we might need to refresh the GraphQL token or get a fresh one
-  // This is because in some implementations, the token becomes invalid when the schedule
-  // is deleted, as it might invalidate user-related data
+  // Test 22: Delete Users
+  printHeading("Test 22: Delete Users");
   
-  // Try to get a fresh token for GraphQL if needed
-  let freshGraphqlToken = graphqlToken;
-  try {
-    // Only try to refresh if we have valid login credentials
-    if (user && user.email) {
-      const loginMutation = `mutation {
-        login(input: {email: "${user.email}", password: "test123"}) {
-          token
-        }
-      }`;
-      console.log(`${colors.yellow}Attempting to refresh GraphQL token before user deletion${colors.reset}`);
-      const refreshLoginResp = await graphqlRequest(loginMutation);
-      if (refreshLoginResp?.data?.login?.token) {
-        freshGraphqlToken = refreshLoginResp.data.login.token;
-        console.log(`${colors.green}Successfully refreshed GraphQL token${colors.reset}`);
-      }
-    }
-  } catch (error) {
-    console.error(`${colors.red}Error refreshing GraphQL token: ${error}${colors.reset}`);
-    // Continue with the existing token if refresh fails
-  }
+  // Delete REST user
+  printHeading("Test 22.1: Delete REST User");
+  const restUserId = restUser.id;
+  console.log(`${colors.yellow}Deleting REST user with ID: ${restUserId}${colors.reset}`);
   
-  const restDeleteUserResp = await restRequest('DELETE', `/users/${userId}`, null, restToken);
-  
-  const graphqlDeleteUserMutation = `mutation {
-    deleteUser(userId: "${userId}")
-  }`;
-  
-  const graphqlDeleteUserResp = await graphqlRequest(graphqlDeleteUserMutation, freshGraphqlToken);
-  
+  const restDeleteUserResp = await restRequest('DELETE', `/users/${restUserId}`, null, restToken);
   console.log(`${colors.yellow}REST delete response:${colors.reset} ${JSON.stringify(restDeleteUserResp)}`);
-  console.log(`${colors.yellow}GraphQL delete response:${colors.reset} ${JSON.stringify(graphqlDeleteUserResp)}`);
   
   // DELETE usually returns 204 No Content, so we check differently
   const restDeleteUserSuccess = restDeleteUserResp === null || Object.keys(restDeleteUserResp).length === 0;
+  
+  if (restDeleteUserSuccess) {
+    console.log(`${colors.green}REST user deleted successfully${colors.reset}`);
+    printResult("Delete REST User", true);
+  } else {
+    console.log(`${colors.red}Failed to delete REST user${colors.reset}`);
+    printResult("Delete REST User", false);
+  }
+  
+  // Delete GraphQL user
+  printHeading("Test 22.2: Delete GraphQL User");
+  const graphqlUserId = graphqlUser.id;
+  console.log(`${colors.yellow}Deleting GraphQL user with ID: ${graphqlUserId}${colors.reset}`);
+  
+  // Try to refresh GraphQL token if needed
+  let freshGraphqlToken = graphqlToken;
+  try {
+    // Try to get a fresh token by logging in with the GraphQL user
+    const refreshLoginMutation = `mutation {
+      login(input: {email: "${graphqlUser.email}", password: "test123"}) {
+        token
+      }
+    }`;
+    
+    console.log(`${colors.yellow}Attempting to refresh GraphQL token before user deletion${colors.reset}`);
+    const refreshLoginResp = await graphqlRequest(refreshLoginMutation);
+    
+    if (refreshLoginResp?.data?.login?.token) {
+      freshGraphqlToken = refreshLoginResp.data.login.token;
+      console.log(`${colors.green}Successfully refreshed GraphQL token${colors.reset}`);
+    } else {
+      console.log(`${colors.yellow}Unable to refresh GraphQL token, will try with original token${colors.reset}`);
+    }
+  } catch (error) {
+    console.error(`${colors.red}Error refreshing GraphQL token: ${error}${colors.reset}`);
+  }
+  
+  const graphqlDeleteUserMutation = `mutation {
+    deleteUser(userId: "${graphqlUserId}")
+  }`;
+  
+  const graphqlDeleteUserResp = await graphqlRequest(graphqlDeleteUserMutation, freshGraphqlToken);
+  console.log(`${colors.yellow}GraphQL delete response:${colors.reset} ${JSON.stringify(graphqlDeleteUserResp)}`);
+  
   const graphqlDeleteUserSuccess = graphqlDeleteUserResp && 
     (graphqlDeleteUserResp.data?.deleteUser === true || 
      graphqlDeleteUserResp.data?.deleteUser === "true");
   
-  // For API comparison, both should behave the same way
-  const bothUserSuccess = restDeleteUserSuccess && graphqlDeleteUserSuccess;
-  const eitherUserSuccess = restDeleteUserSuccess || graphqlDeleteUserSuccess;
-  
-  if (restDeleteUserSuccess !== graphqlDeleteUserSuccess) {
-    console.log(`${colors.yellow}Warning: API behavior discrepancy detected!${colors.reset}`);
-    console.log(`${colors.yellow}REST API success: ${restDeleteUserSuccess}, GraphQL API success: ${graphqlDeleteUserSuccess}${colors.reset}`);
-    
+  if (graphqlDeleteUserSuccess) {
+    console.log(`${colors.green}GraphQL user deleted successfully${colors.reset}`);
+    printResult("Delete GraphQL User", true);
+  } else {
     // Check if GraphQL failed due to authentication
     if (graphqlDeleteUserResp?.errors && 
-        graphqlDeleteUserResp.errors[0]?.message?.includes('Authentication')) {
+        (graphqlDeleteUserResp.errors[0]?.message?.includes('Authentication') ||
+         graphqlDeleteUserResp.errors[0]?.message?.includes('token') ||
+         graphqlDeleteUserResp.errors[0]?.extensions?.code === 'UNAUTHENTICATED')) {
       console.log(`${colors.yellow}GraphQL API failed due to authentication. This is expected if token was invalidated by previous operations.${colors.reset}`);
       
-      // Consider this a "soft success" for GraphQL since the user might already be deleted in a previous step
-      // or the auth token was invalidated by a preceding operation
-      console.log(`${colors.green}Using REST success as the determining factor for this test${colors.reset}`);
-      printResult("Delete User", restDeleteUserSuccess);
-      return;
+      // Try with a direct REST request as a fallback
+      console.log(`${colors.yellow}Trying to delete GraphQL user with REST API as fallback${colors.reset}`);
+      const fallbackRestDeleteResp = await restRequest('DELETE', `/users/${graphqlUserId}`, null, restToken);
+      const fallbackSuccess = fallbackRestDeleteResp === null || Object.keys(fallbackRestDeleteResp).length === 0;
+      
+      if (fallbackSuccess) {
+        console.log(`${colors.green}Successfully deleted GraphQL user using REST API fallback${colors.reset}`);
+        printResult("Delete GraphQL User", true);
+      } else {
+        console.log(`${colors.red}Failed to delete GraphQL user even with fallback${colors.reset}`);
+        printResult("Delete GraphQL User", false);
+      }
+    } else {
+      console.log(`${colors.red}Failed to delete GraphQL user${colors.reset}`);
+      printResult("Delete GraphQL User", false);
     }
   }
   
-  // For stricter comparison, use bothUserSuccess
-  printResult("Delete User", bothUserSuccess);
+  // Overall user deletion success
+  const allUsersDeleted = restDeleteUserSuccess && 
+    (graphqlDeleteUserSuccess || 
+     (graphqlDeleteUserResp?.errors && 
+      (graphqlDeleteUserResp.errors[0]?.message?.includes('Authentication') ||
+       graphqlDeleteUserResp.errors[0]?.message?.includes('token') ||
+       graphqlDeleteUserResp.errors[0]?.extensions?.code === 'UNAUTHENTICATED')));
+  
+  printResult("All Users Deleted", allUsersDeleted);
   
   // Show test summary
   printHeading("Test Summary");

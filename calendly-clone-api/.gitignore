@@ -57,3 +57,4 @@ dist/
 build/ 
 
 nginx
+database.db
