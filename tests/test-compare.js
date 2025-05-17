@@ -1199,38 +1199,12 @@ async function runApiComparisonTests() {
     console.log(`${colors.green}GraphQL user deleted successfully${colors.reset}`);
     printResult("Delete GraphQL User", true);
   } else {
-    // Check if GraphQL failed due to authentication
-    if (graphqlDeleteUserResp?.errors && 
-        (graphqlDeleteUserResp.errors[0]?.message?.includes('Authentication') ||
-         graphqlDeleteUserResp.errors[0]?.message?.includes('token') ||
-         graphqlDeleteUserResp.errors[0]?.extensions?.code === 'UNAUTHENTICATED')) {
-      console.log(`${colors.yellow}GraphQL API failed due to authentication. This is expected if token was invalidated by previous operations.${colors.reset}`);
-      
-      // Try with a direct REST request as a fallback
-      console.log(`${colors.yellow}Trying to delete GraphQL user with REST API as fallback${colors.reset}`);
-      const fallbackRestDeleteResp = await restRequest('DELETE', `/users/${graphqlUserId}`, null, restToken);
-      const fallbackSuccess = fallbackRestDeleteResp === null || Object.keys(fallbackRestDeleteResp).length === 0;
-      
-      if (fallbackSuccess) {
-        console.log(`${colors.green}Successfully deleted GraphQL user using REST API fallback${colors.reset}`);
-        printResult("Delete GraphQL User", true);
-      } else {
-        console.log(`${colors.red}Failed to delete GraphQL user even with fallback${colors.reset}`);
-        printResult("Delete GraphQL User", false);
-      }
-    } else {
-      console.log(`${colors.red}Failed to delete GraphQL user${colors.reset}`);
-      printResult("Delete GraphQL User", false);
-    }
+    console.log(`${colors.red}Failed to delete GraphQL user${colors.reset}`);
+    printResult("Delete GraphQL User", false);
   }
   
   // Overall user deletion success
-  const allUsersDeleted = restDeleteUserSuccess && 
-    (graphqlDeleteUserSuccess || 
-     (graphqlDeleteUserResp?.errors && 
-      (graphqlDeleteUserResp.errors[0]?.message?.includes('Authentication') ||
-       graphqlDeleteUserResp.errors[0]?.message?.includes('token') ||
-       graphqlDeleteUserResp.errors[0]?.extensions?.code === 'UNAUTHENTICATED')));
+  const allUsersDeleted = restDeleteUserSuccess && graphqlDeleteUserSuccess;
   
   printResult("All Users Deleted", allUsersDeleted);
   
