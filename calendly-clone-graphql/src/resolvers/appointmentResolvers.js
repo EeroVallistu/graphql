@@ -54,7 +54,9 @@ export const appointmentResolvers = {
         if (!appointment) {
           return { message: 'Appointment not found', code: 'NOT_FOUND' };
         }
-        
+        if (!appointment.id || !appointment.eventId || !appointment.userId || !appointment.inviteeEmail) {
+          return { message: 'Corrupt appointment data', code: 'DATABASE_ERROR' };
+        }
         return appointment;
       } catch (error) {
         console.error('Database error:', error);
@@ -266,7 +268,12 @@ export const appointmentResolvers = {
         
         // Get updated appointment
         const updatedAppointment = await db.get('SELECT * FROM appointments WHERE id = ?', [appointmentId]);
-        
+        if (!updatedAppointment) {
+          return { message: 'Appointment not found after update', code: 'NOT_FOUND' };
+        }
+        if (!updatedAppointment.id || !updatedAppointment.eventId || !updatedAppointment.userId || !updatedAppointment.inviteeEmail) {
+          return { message: 'Corrupt appointment data', code: 'DATABASE_ERROR' };
+        }
         return updatedAppointment;
       } catch (error) {
         console.error('Database error:', error);

@@ -306,6 +306,15 @@ function printResult(testName, success) {
   }
 }
 
+// Print a sub-step result (does not increment test counters)
+function printSubResult(testName, success) {
+  if (success) {
+    console.log(`${colors.green}✓ ${testName}${colors.reset}`);
+  } else {
+    console.log(`${colors.red}✗ ${testName}${colors.reset}`);
+  }
+}
+
 // Register a new user for REST API tests
 async function registerRestTestUser() {
   const userData = {
@@ -736,8 +745,8 @@ async function runApiComparisonTests() {
   
   // Test 11: Create Schedule
   printHeading("Test 11: Create Schedule");
-  const scheduleData = {
-    userId: user.id,
+  const restScheduleData = {
+    userId: restUser.id,
     availability: {
       monday: [
         { start: "09:00", end: "12:00" },
@@ -749,13 +758,11 @@ async function runApiComparisonTests() {
       ]
     }
   };
-  
-  const restScheduleResp = await restRequest('POST', '/schedules', scheduleData, restToken);
-  
+  const restScheduleResp = await restRequest('POST', '/schedules', restScheduleData, restToken);
   // Use GraphQL user id and same availability for GraphQL
   const graphqlScheduleData = {
     userId: graphqlUser.id,
-    availability: scheduleData.availability
+    availability: restScheduleData.availability
   };
   const graphqlAvailabilityString = JSON.stringify(graphqlScheduleData.availability).replace(/"/g, '\\"');
   const graphqlCreateScheduleMutation = `mutation {
@@ -769,11 +776,9 @@ async function runApiComparisonTests() {
       }
     }
   }`;
-  
   const graphqlScheduleResp = await graphqlRequest(graphqlCreateScheduleMutation, graphqlToken);
   console.log(`${colors.yellow}REST response:${colors.reset} ${JSON.stringify(restScheduleResp)}`);
   console.log(`${colors.yellow}GraphQL response:${colors.reset} ${JSON.stringify(graphqlScheduleResp)}`);
-  
   const scheduleResult = compareResponses(restScheduleResp, graphqlScheduleResp, 'createSchedule');
   printResult("Create Schedule", scheduleResult);
   
@@ -787,16 +792,14 @@ async function runApiComparisonTests() {
     }
   }`;
   const graphqlSchedulesResp = await graphqlRequest(graphqlSchedulesQuery, graphqlToken);
-  
   console.log(`${colors.yellow}REST response:${colors.reset} ${JSON.stringify(restSchedulesResp)}`);
   console.log(`${colors.yellow}GraphQL response:${colors.reset} ${JSON.stringify(graphqlSchedulesResp)}`);
-  
   const schedulesResult = compareResponses(restSchedulesResp, graphqlSchedulesResp, 'schedules');
   printResult("Get Schedules", schedulesResult);
   
   // Test 13: Get Single Schedule
   printHeading("Test 13: Get Single Schedule");
-  const restSingleScheduleResp = await restRequest('GET', `/schedules/${user.id}`, null, restToken);
+  const restSingleScheduleResp = await restRequest('GET', `/schedules/${restUser.id}`, null, restToken);
   const graphqlSingleScheduleQuery = `query {
     schedule(userId: "${graphqlUser.id}") {
       ... on Schedule {
@@ -806,16 +809,14 @@ async function runApiComparisonTests() {
     }
   }`;
   const graphqlSingleScheduleResp = await graphqlRequest(graphqlSingleScheduleQuery, graphqlToken);
-  
   console.log(`${colors.yellow}REST response:${colors.reset} ${JSON.stringify(restSingleScheduleResp)}`);
   console.log(`${colors.yellow}GraphQL response:${colors.reset} ${JSON.stringify(graphqlSingleScheduleResp)}`);
-  
   const singleScheduleResult = compareResponses(restSingleScheduleResp, graphqlSingleScheduleResp, 'schedule');
   printResult("Get Single Schedule", singleScheduleResult);
   
   // Test 14: Update Schedule
   printHeading("Test 14: Update Schedule");
-  const updateScheduleData = {
+  const updateRestScheduleData = {
     availability: {
       monday: [
         { start: "10:00", end: "12:00" },
@@ -827,12 +828,10 @@ async function runApiComparisonTests() {
       ]
     }
   };
-  
   // REST: update REST user's schedule
-  const restUpdateScheduleResp = await restRequest('PATCH', `/schedules/${user.id}`, updateScheduleData, restToken);
-  
+  const restUpdateScheduleResp = await restRequest('PATCH', `/schedules/${restUser.id}`, updateRestScheduleData, restToken);
   // GraphQL: update GraphQL user's schedule
-  const updatedAvailabilityString = JSON.stringify(updateScheduleData.availability).replace(/"/g, '\\"');
+  const updatedAvailabilityString = JSON.stringify(updateRestScheduleData.availability).replace(/"/g, '\\"');
   const graphqlUpdateScheduleMutation = `mutation {
     updateSchedule(userId: "${graphqlUser.id}", input: {
       userId: "${graphqlUser.id}",
@@ -845,11 +844,9 @@ async function runApiComparisonTests() {
       }
     }
   }`;
-  
   const graphqlUpdateScheduleResp = await graphqlRequest(graphqlUpdateScheduleMutation, graphqlToken);
   console.log(`${colors.yellow}REST response:${colors.reset} ${JSON.stringify(restUpdateScheduleResp)}`);
   console.log(`${colors.yellow}GraphQL response:${colors.reset} ${JSON.stringify(graphqlUpdateScheduleResp)}`);
-  
   const updateScheduleResult = compareResponses(restUpdateScheduleResp, graphqlUpdateScheduleResp, 'updateSchedule');
   printResult("Update Schedule", updateScheduleResult);
   
@@ -987,7 +984,7 @@ async function runApiComparisonTests() {
     printResult("Update Appointment", updateAppointmentResult);
   }
   
-  // Test 18: Delete Appointment (if created)
+  // Test 19: Delete Appointment (if created)
   // We need to delete both REST and GraphQL appointments separately since they have different IDs
   printHeading("Test 19: Delete Appointment");
   let restDeleteAppointmentSuccess = false;
@@ -998,9 +995,11 @@ async function runApiComparisonTests() {
     const restDeleteAppointmentResp = await restRequest('DELETE', `/appointments/${restAppointmentId}`, null, restToken);
     console.log(`${colors.yellow}REST delete response for appointment ${restAppointmentId}:${colors.reset} ${JSON.stringify(restDeleteAppointmentResp)}`);
     restDeleteAppointmentSuccess = restDeleteAppointmentResp === null || Object.keys(restDeleteAppointmentResp).length === 0;
+    printSubResult("Delete REST Appointment", restDeleteAppointmentSuccess);
   } else {
     console.log(`${colors.yellow}Skipping REST appointment deletion as no id was found${colors.reset}`);
     restDeleteAppointmentSuccess = true; // No appointment to delete = success
+    printSubResult("Delete REST Appointment", restDeleteAppointmentSuccess);
   }
   
   // Delete GraphQL appointment if created and different from REST appointment
@@ -1015,6 +1014,7 @@ async function runApiComparisonTests() {
     graphqlDeleteAppointmentSuccess = graphqlDeleteAppointmentResp && 
       (graphqlDeleteAppointmentResp.data?.deleteAppointment === true || 
        graphqlDeleteAppointmentResp.data?.deleteAppointment === "true");
+    printSubResult("Delete GraphQL Appointment", graphqlDeleteAppointmentSuccess);
   } else if (restAppointmentId) {
     // If we've only created one appointment and used it for both APIs, delete it via GraphQL too
     const graphqlDeleteAppointmentMutation = `mutation {
@@ -1027,9 +1027,11 @@ async function runApiComparisonTests() {
     graphqlDeleteAppointmentSuccess = graphqlDeleteAppointmentResp && 
       (graphqlDeleteAppointmentResp.data?.deleteAppointment === true || 
        graphqlDeleteAppointmentResp.data?.deleteAppointment === "true");
+    printSubResult("Delete GraphQL Appointment", graphqlDeleteAppointmentSuccess);
   } else {
     console.log(`${colors.yellow}Skipping GraphQL appointment deletion as no id was found${colors.reset}`);
     graphqlDeleteAppointmentSuccess = true; // No appointment to delete = success
+    printSubResult("Delete GraphQL Appointment", graphqlDeleteAppointmentSuccess);
   }
   
   // For API comparison, both should succeed
@@ -1044,12 +1046,10 @@ async function runApiComparisonTests() {
   
   // Test 19: Delete Schedule
   printHeading("Test 20: Delete Schedule");
-  const restDeleteScheduleResp = await restRequest('DELETE', `/schedules/${user.id}`, null, restToken);
-  
+  const restDeleteScheduleResp = await restRequest('DELETE', `/schedules/${restUser.id}`, null, restToken);
   const graphqlDeleteScheduleMutation = `mutation {
     deleteSchedule(userId: "${graphqlUser.id}")
   }`;
-  
   const graphqlDeleteScheduleResp = await graphqlRequest(graphqlDeleteScheduleMutation, graphqlToken);
   
   console.log(`${colors.yellow}REST delete response:${colors.reset} ${JSON.stringify(restDeleteScheduleResp)}`);
@@ -1070,7 +1070,6 @@ async function runApiComparisonTests() {
     console.log(`${colors.yellow}REST API success: ${restDeleteScheduleSuccess}, GraphQL API success: ${graphqlDeleteScheduleSuccess}${colors.reset}`);
   }
   
-  // For stricter comparison, use bothScheduleSuccess
   printResult("Delete Schedule", bothScheduleSuccess);
   
   // Test 20: Delete Events (if created)
@@ -1078,59 +1077,51 @@ async function runApiComparisonTests() {
   let restDeleteEventSuccess = false;
   let graphqlDeleteEventSuccess = false;
   
+  printHeading("Test 21: Delete Events");
   if (restEventId) {
-    printHeading("Test 21: Delete REST Event");
     const restDeleteEventResp = await restRequest('DELETE', `/events/${restEventId}`, null, restToken);
-    
     const graphqlDeleteRestEventMutation = `mutation {
       deleteEvent(eventId: "${restEventId}")
     }`;
-    
-    const graphqlDeleteRestEventResp = await graphqlRequest(graphqlDeleteRestEventMutation, graphqlToken);
-    
+    // Use restToken for REST event deletion via GraphQL
+    const graphqlDeleteRestEventResp = await graphqlRequest(graphqlDeleteRestEventMutation, restToken);
     console.log(`${colors.yellow}REST delete response:${colors.reset} ${JSON.stringify(restDeleteEventResp)}`);
     console.log(`${colors.yellow}GraphQL delete response:${colors.reset} ${JSON.stringify(graphqlDeleteRestEventResp)}`);
-    
-    // DELETE usually returns 204 No Content, so we check differently
     restDeleteEventSuccess = restDeleteEventResp === null || Object.keys(restDeleteEventResp).length === 0;
-    const graphqlDeleteRestEventSuccess = graphqlDeleteRestEventResp && 
-      (graphqlDeleteRestEventResp.data?.deleteEvent === true || 
+    const graphqlDeleteRestEventSuccess = graphqlDeleteRestEventResp &&
+      (graphqlDeleteRestEventResp.data?.deleteEvent === true ||
        graphqlDeleteRestEventResp.data?.deleteEvent === "true");
-    
-    // For API comparison, both should behave the same way
     const bothRestEventSuccess = restDeleteEventSuccess && graphqlDeleteRestEventSuccess;
-    
     if (restDeleteEventSuccess !== graphqlDeleteRestEventSuccess) {
       console.log(`${colors.yellow}Warning: API behavior discrepancy detected!${colors.reset}`);
       console.log(`${colors.yellow}REST API success: ${restDeleteEventSuccess}, GraphQL API success: ${graphqlDeleteRestEventSuccess}${colors.reset}`);
     }
-    
-    printResult("Delete REST Event", bothRestEventSuccess);
+    if (bothRestEventSuccess) {
+      console.log(`${colors.green}✓ REST Event deleted (REST & GraphQL)${colors.reset}`);
+    } else {
+      console.log(`${colors.red}✗ REST Event deletion failed (REST or GraphQL)${colors.reset}`);
+    }
   }
-  
-  // Then delete the GraphQL event if it exists and is different from REST event
   if (graphqlEventId && graphqlEventId !== restEventId) {
-    printHeading("Test 21.2: Delete GraphQL Event");
-    
     const graphqlDeleteEventMutation = `mutation {
       deleteEvent(eventId: "${graphqlEventId}")
     }`;
-    
+    // Use graphqlToken for GraphQL event deletion
     const graphqlDeleteEventResp = await graphqlRequest(graphqlDeleteEventMutation, graphqlToken);
-    
     console.log(`${colors.yellow}GraphQL delete response for GraphQL event ${graphqlEventId}:${colors.reset} ${JSON.stringify(graphqlDeleteEventResp)}`);
-    
-    graphqlDeleteEventSuccess = graphqlDeleteEventResp && 
-      (graphqlDeleteEventResp.data?.deleteEvent === true || 
+    graphqlDeleteEventSuccess = graphqlDeleteEventResp &&
+      (graphqlDeleteEventResp.data?.deleteEvent === true ||
        graphqlDeleteEventResp.data?.deleteEvent === "true");
-    
-    printResult("Delete GraphQL Event", graphqlDeleteEventSuccess);
+    if (graphqlDeleteEventSuccess) {
+      console.log(`${colors.green}✓ GraphQL Event deleted${colors.reset}`);
+    } else {
+      console.log(`${colors.red}✗ GraphQL Event deletion failed${colors.reset}`);
+    }
   } else {
     console.log(`${colors.yellow}Skipping GraphQL event deletion as either no GraphQL event was created or it was the same as the REST event${colors.reset}`);
     graphqlDeleteEventSuccess = true; // No GraphQL event to delete = success
+    console.log(`${colors.green}✓ GraphQL Event deleted (skipped)${colors.reset}`);
   }
-  
-  // Overall event deletion success
   const allEventsDeleted = restDeleteEventSuccess && graphqlDeleteEventSuccess;
   printResult("All Events Deleted", allEventsDeleted);
   
@@ -1138,7 +1129,6 @@ async function runApiComparisonTests() {
   printHeading("Test 22: Delete Users");
   
   // Delete REST user
-  printHeading("Test 22.1: Delete REST User");
   const restUserId = restUser.id;
   console.log(`${colors.yellow}Deleting REST user with ID: ${restUserId}${colors.reset}`);
   
@@ -1150,14 +1140,11 @@ async function runApiComparisonTests() {
   
   if (restDeleteUserSuccess) {
     console.log(`${colors.green}REST user deleted successfully${colors.reset}`);
-    printResult("Delete REST User", true);
   } else {
     console.log(`${colors.red}Failed to delete REST user${colors.reset}`);
-    printResult("Delete REST User", false);
   }
   
   // Delete GraphQL user
-  printHeading("Test 22.2: Delete GraphQL User");
   const graphqlUserId = graphqlUser.id;
   console.log(`${colors.yellow}Deleting GraphQL user with ID: ${graphqlUserId}${colors.reset}`);
   
@@ -1197,10 +1184,8 @@ async function runApiComparisonTests() {
   
   if (graphqlDeleteUserSuccess) {
     console.log(`${colors.green}GraphQL user deleted successfully${colors.reset}`);
-    printResult("Delete GraphQL User", true);
   } else {
     console.log(`${colors.red}Failed to delete GraphQL user${colors.reset}`);
-    printResult("Delete GraphQL User", false);
   }
   
   // Overall user deletion success
