@@ -1,5 +1,8 @@
 # Main schema definition file for the Calendly Clone GraphQL Service
 
+# Directive for skipping authentication
+directive @skipAuth on FIELD_DEFINITION
+
 # Scalar for custom date time format
 scalar DateTime
 
